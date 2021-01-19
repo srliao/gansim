@@ -51,7 +51,7 @@ type config struct {
 type profile struct {
 	NumSim  int64  `yaml:"NumSim"`
 	Output  string `yaml:"Output"`
-	Name    string `yaml:"Name"`
+	Label   string `yaml:"Label"`
 	SaveCSV bool   `yaml:"SaveCSV"`
 	//character info
 	CharLevel     float64 `yaml:"CharacterLevel"`
@@ -263,33 +263,20 @@ func main() {
 			// return?
 		}
 
-		labels[i] = prf.Name
+		labels[i] = prf.Label
 
 		fmt.Printf("starting simulation for profile: %v, n = %v\n", ppath, prf.NumSim)
 		timeStart := time.Now()
 		hist := sim(cfg, prf)
 		elapsed := time.Since(timeStart)
-		fmt.Printf("Simulation for profile %v took %s\n", ppath, elapsed)
+		fmt.Printf("Simulation for profile %v took %s\n\n", ppath, elapsed)
 		histData[i] = hist
 
 	}
 
+	// fmt.Println("labels: ", labels)
+
 	//sim results page
-	page := components.NewPage()
-	lineChart := charts.NewLine()
-	lineChart.SetGlobalOptions(
-		charts.WithTitleOpts(opts.Title{
-			Title: "Probability Density Function",
-		}),
-		charts.WithYAxisOpts(opts.YAxis{
-			Name: "Probability",
-		}),
-		charts.WithXAxisOpts(opts.XAxis{
-			Name: "Avg Dmg",
-		}),
-		// charts.WithTooltipOpts(opts.Tooltip{Show: true}),
-		charts.WithLegendOpts(opts.Legend{Show: true, X: "right", Y: "right", Left: "right", Orient: "vertical"}),
-	)
 	items := make([][]opts.LineData, len(cfg.Profiles))
 	min := make([]float64, len(cfg.Profiles))
 	max := make([]float64, len(cfg.Profiles))
@@ -327,8 +314,11 @@ func main() {
 		}
 	}
 	//calculate bin size
-	binMin = binMin / float64(cfg.BinSize) * float64(cfg.BinSize)
-	binMax = (binMax/float64(cfg.BinSize) + 1.0) * float64(cfg.BinSize)
+	binMin = float64(int64(binMin/float64(cfg.BinSize)) * cfg.BinSize)
+	binMax = float64((int64(binMax/float64(cfg.BinSize)) + 1.0) * cfg.BinSize)
+
+	// fmt.Printf("bin min: %v, bin max: %v\n", binMin, binMax)
+
 	numBin := int64((binMax-binMin)/float64(cfg.BinSize)) + 1
 	xaxis := make([]float64, numBin)
 
@@ -350,6 +340,28 @@ func main() {
 		}
 	}
 
+	//add min, max, avg, stddev to label
+	for i, v := range labels {
+		sd := math.Sqrt(ss[i] / float64(cfg.NumSim))
+		labels[i] = fmt.Sprintf("%v (min: %.f max: %.f avg: %.f sd: %.f)", v, min[i], max[i], avg[i], sd)
+	}
+
+	page := components.NewPage()
+	page.PageTitle = "simulation results"
+	lineChart := charts.NewLine()
+	lineChart.SetGlobalOptions(
+		charts.WithTitleOpts(opts.Title{
+			Title: fmt.Sprintf("Probability Density Function (n = %v)", cfg.NumSim),
+		}),
+		charts.WithYAxisOpts(opts.YAxis{
+			Name: "Probability",
+		}),
+		charts.WithXAxisOpts(opts.XAxis{
+			Name: fmt.Sprintf("Dmg: %v", cfg.DamageType),
+		}),
+		charts.WithTooltipOpts(opts.Tooltip{Show: true}),
+		charts.WithLegendOpts(opts.Legend{Show: true, Right: "0%", Orient: "vertical", Data: labels}),
+	)
 	lineChart.SetXAxis(xaxis)
 
 	//add items to our chart

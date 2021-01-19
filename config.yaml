@@ -1,6 +1,6 @@
 GraphOutput: "./graphs/out.html"
-NumSim: 10000
-BinSize: 200
+NumSim: 1000000
+BinSize: 100
 WriteCSV: false
 DamageType: "avg" #normal, avg, crit
 Profiles:

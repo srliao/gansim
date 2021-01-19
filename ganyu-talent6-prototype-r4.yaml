@@ -1,5 +1,5 @@
 #sim info
-Output: "prototype-r1.csv"
+Output: "prototype-r4.csv"
 NumSim: 10000000
 
 #base stats
@@ -24,10 +24,10 @@ Talents: #list of talents to execute and their dmg%
 AtkMod:
   - #flake
     - 0.413 # prototype substat
-    - 0.36 #r1 proc
+    - 0.63 #r1 proc
   - #bloom
     - 0.413 # prototype substat
-    - 0.36 #r1 proc
+    - 0.63 #r1 proc
 EleMod:
   - #flake
     - 0.15 # 4pc bs

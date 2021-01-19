@@ -35,12 +35,15 @@ const (
 )
 
 type config struct {
-	NumSim  int64  `yaml:"NumSim"`
-	Profile string `yaml:"Profile"`
-	Output  string `yaml:"Output"`
+	NumSim   int64    `yaml:"NumSim"`
+	Profile  string   `yaml:"Profile"`
+	Output   string   `yaml:"Output"`
+	Profiles []string `yaml:"Profiles"`
 }
 
 type profile struct {
+	NumSim int64  `yaml:"NumSim"`
+	Output string `yaml:"Output"`
 	//character info
 	CharLevel     float64 `yaml:"CharacterLevel"`
 	CharBaseAtk   float64 `yaml:"CharacterBaseAtk"`
@@ -118,89 +121,6 @@ func main() {
 	}
 	// log.Println(cfg)
 
-	//read profile
-
-	fp, err := os.Open(cfg.Profile)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer fp.Close()
-
-	log.Println("reading profile file")
-	var prf profile
-	pdecoder := yaml.NewDecoder(fp)
-	err = pdecoder.Decode(&prf)
-	if err != nil {
-		log.Fatal(err)
-	}
-	// log.Println(prf)
-
-	//profile sanity check
-	if len(prf.AtkMod) < len(prf.Talents) {
-		log.Panicln("invalid # of AtkMod")
-	}
-	if len(prf.EleMod) < len(prf.Talents) {
-		log.Panicln("invalid # of EleMod")
-	}
-	if len(prf.CCMod) < len(prf.Talents) {
-		log.Panicln("invalid # of CCMod")
-	}
-	if len(prf.CDMod) < len(prf.Talents) {
-		log.Panicln("invalid # of CDMod")
-	}
-	if len(prf.DmgMod) < len(prf.Talents) {
-		log.Panicln("invalid # of DmgMod")
-	}
-	if len(prf.ResistMod) < len(prf.Talents) {
-		log.Panicln("invalid # of ResistMod")
-	}
-	if len(prf.DefShredMod) < len(prf.Talents) {
-		log.Panicln("invalid # of DefShredMod")
-	}
-
-	prf.SubstatWeights = make(map[string][]statPrb)
-
-	//load substat weights
-	sw, err := os.Open(prf.SubstatFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer sw.Close()
-
-	reader := csv.NewReader(sw)
-	lines, err := reader.ReadAll()
-	if err != nil {
-		log.Fatal(err)
-	}
-	var headers []string
-	for i, line := range lines {
-		if i == 0 {
-			//read the headers
-			for j := 1; j < len(line); j++ {
-				headers = append(headers, line[j])
-			}
-			fmt.Printf("headers: %v\n", headers)
-		} else {
-			//otherwise populate
-			t := line[0]
-			for j := 1; j < len(line); j++ {
-				//parse float
-				p, err := strconv.ParseFloat(line[j], 64)
-				if err != nil {
-					log.Println("err parsing float at line ", i)
-					log.Fatal(err)
-				}
-				prf.SubstatWeights[headers[j-1]] = append(prf.SubstatWeights[headers[j-1]], statPrb{t: statTypes(t), p: p})
-			}
-		}
-	}
-	// fmt.Printf("map: %v\n", prf.SubstatWeights)
-
-	if testCurrent {
-		test(prf)
-		// return?
-	}
-
 	//initialize stat maps
 	t1 := make(map[statTypes]float64)
 	t1[sHP] = 209
@@ -254,11 +174,103 @@ func main() {
 
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	timeStart := time.Now()
+	//loop through profiles and run sim for each
+
+	for _, ppath := range cfg.Profiles {
+		fp, err := os.Open(ppath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer fp.Close()
+
+		log.Printf("reading profile: %v\n", ppath)
+		var prf profile
+		pdecoder := yaml.NewDecoder(fp)
+		err = pdecoder.Decode(&prf)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		//profile sanity check
+		if len(prf.AtkMod) < len(prf.Talents) {
+			log.Panicln("invalid # of AtkMod")
+		}
+		if len(prf.EleMod) < len(prf.Talents) {
+			log.Panicln("invalid # of EleMod")
+		}
+		if len(prf.CCMod) < len(prf.Talents) {
+			log.Panicln("invalid # of CCMod")
+		}
+		if len(prf.CDMod) < len(prf.Talents) {
+			log.Panicln("invalid # of CDMod")
+		}
+		if len(prf.DmgMod) < len(prf.Talents) {
+			log.Panicln("invalid # of DmgMod")
+		}
+		if len(prf.ResistMod) < len(prf.Talents) {
+			log.Panicln("invalid # of ResistMod")
+		}
+		if len(prf.DefShredMod) < len(prf.Talents) {
+			log.Panicln("invalid # of DefShredMod")
+		}
+
+		prf.SubstatWeights = make(map[string][]statPrb)
+
+		//load substat weights
+		sw, err := os.Open(prf.SubstatFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer sw.Close()
+
+		reader := csv.NewReader(sw)
+		lines, err := reader.ReadAll()
+		if err != nil {
+			log.Fatal(err)
+		}
+		var headers []string
+		for i, line := range lines {
+			if i == 0 {
+				//read the headers
+				for j := 1; j < len(line); j++ {
+					headers = append(headers, line[j])
+				}
+				fmt.Printf("headers: %v\n", headers)
+			} else {
+				//otherwise populate
+				t := line[0]
+				for j := 1; j < len(line); j++ {
+					//parse float
+					p, err := strconv.ParseFloat(line[j], 64)
+					if err != nil {
+						log.Println("err parsing float at line ", i)
+						log.Fatal(err)
+					}
+					prf.SubstatWeights[headers[j-1]] = append(prf.SubstatWeights[headers[j-1]], statPrb{t: statTypes(t), p: p})
+				}
+			}
+		}
+
+		if testCurrent {
+			test(prf)
+			// return?
+		}
+
+		fmt.Printf("starting simulation for profile: %v\n", ppath)
+		timeStart := time.Now()
+		sim(prf)
+		elapsed := time.Since(timeStart)
+		log.Printf("Simulation for profile %v took %s", ppath, elapsed)
+
+	}
+
+}
+
+func sim(p profile) {
 
 	//generate some random sets
 	var avg, min, max, progress float64
-	count := cfg.NumSim
+	count := p.NumSim
 	min = 10000000 //shouldnt ever get this big...
 	var hist []float64
 
@@ -272,7 +284,7 @@ func main() {
 
 		//send out worker if wc < wcmax
 		if wc < wcmax {
-			go worker(prf, resp)
+			go worker(p, resp)
 			wc++
 		} else { //otherwise wait for result
 			r := <-resp
@@ -287,30 +299,35 @@ func main() {
 				max = r.a
 			}
 			avg += r.a
-			if (1 - float64(count)/float64(cfg.NumSim)) > (progress + 0.1) {
-				progress = (1 - float64(count)/float64(cfg.NumSim))
+			if (1 - float64(count)/float64(p.NumSim)) > (progress + 0.1) {
+				progress = (1 - float64(count)/float64(p.NumSim))
 				log.Printf("progress: %.2f %%", 100*progress)
 			}
 		}
 
 	}
 
-	fmt.Printf("avg: %v, min: %v, max: %v\n", avg/float64(cfg.NumSim), min, max)
+	fmt.Printf("avg: %v, min: %v, max: %v\n", avg/float64(p.NumSim), min, max)
+	//bin it in 200 increments, starting at min rounded down to nearest 200 up to max rounded up to nearest 200
+	var inc int64
+	inc = 200
+	binMin := int64(min/float64(inc)) * inc
+	binMax := (int64(max/float64(inc)) + 1) * inc
+	numBin := (binMax - binMin) / inc
+
+	bins := make([]float64, numBin)
+
 	//plot out a histogram between min - max, and 20 bins
-	inc := (max - min) / 20
+
 	fmt.Println("step size: ", inc)
-	var bins [20]float64
+
 	for _, v := range hist {
-		steps := int64((v-min)/inc) + 1
-		if steps > 20 {
-			log.Println("unexpected, steps > 20, value: ", v)
-			steps = 20
-		}
-		bins[steps-1]++
+		steps := int64((v - float64(binMin)) / float64(inc))
+		bins[steps]++
 	}
 
-	os.Remove(cfg.Output)
-	file, err := os.Create(cfg.Output)
+	os.Remove(p.Output)
+	file, err := os.Create(p.Output)
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -319,8 +336,8 @@ func main() {
 	defer writer.Flush()
 
 	for i, v := range bins {
-		start := strconv.FormatFloat(min+float64(i)*inc, 'f', 6, 64)
-		end := strconv.FormatFloat(min+float64(i+1)*inc, 'f', 6, 64)
+		start := strconv.FormatInt(binMin+int64(i)*inc, 10)
+		end := strconv.FormatInt(binMin+int64(i+1)*inc, 10)
 
 		if err := writer.Write([]string{
 			strconv.FormatInt(int64(i), 10),
@@ -331,9 +348,6 @@ func main() {
 			log.Panicln(err)
 		}
 	}
-
-	elapsed := time.Since(timeStart)
-	log.Printf("Simulation took %s", elapsed)
 
 }
 

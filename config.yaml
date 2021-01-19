@@ -1,3 +1,8 @@
-Profile: "./ganyu-talent6-prototype.yaml"
+Profile: "./ganyu-talent6-amos-r1.yaml"
 NumSim: 10000000
 Output: "./result.csv"
+Profiles:
+  - "./ganyu-talent6-amos-r1.yaml"
+  - "./ganyu-talent6-prototype-r1.yaml"
+  - "./ganyu-talent6-prototype-r4.yaml"
+  - "./ganyu-talent6-prototype-r5.yaml"

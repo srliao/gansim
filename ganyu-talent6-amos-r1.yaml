@@ -1,11 +1,11 @@
 #sim info
-Output: "prototype-r1.csv"
+Output: "amos-r1.csv"
 NumSim: 10000000
 
 #base stats
 CharacterLevel: 90
 CharacterBaseAtk: 335 #lvl 90 base dmg
-WeaponBaseAtk: 510 #lvl 90 prototype
+WeaponBaseAtk: 608 #lvl 90 prototype
 EnemyLevel: 100
 
 # main stat to use for sands/goblet/circlet
@@ -23,11 +23,9 @@ Talents: #list of talents to execute and their dmg%
 #mods should be a list of lists, one set of mods for each talent to execute
 AtkMod:
   - #flake
-    - 0.413 # prototype substat
-    - 0.36 #r1 proc
+    - 0.496 # amos substat
   - #bloom
-    - 0.413 # prototype substat
-    - 0.36 #r1 proc
+    - 0.496 # amos substat
 EleMod:
   - #flake
     - 0.15 # 4pc bs
@@ -51,9 +49,9 @@ CDMod:
     - 0.384 #ganyu ascension
 DmgMod:
   - #flake
-    - 0
+    - .52 #amos 0.5 dmg mod
   - #bloom
-    - 0
+    - .52 #amos 0.5 dmg mod
 ResistMod:
   - #flake
     - 0.1 #base resist

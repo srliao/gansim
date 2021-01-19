@@ -1,6 +1,8 @@
 #sim info
-Output: "prototype-r5.csv"
-NumSim: 10000000
+SaveCSV: false
+Output: "prototype-r1-noproc.csv"
+NumSim: 1000000
+Label: "Proto R1 No Proc"
 
 #base stats
 CharacterLevel: 90
@@ -24,10 +26,10 @@ Talents: #list of talents to execute and their dmg%
 AtkMod:
   - #flake
     - 0.413 # prototype substat
-    - 0.72 #r1 proc
+    # - 0.36 #r1 proc
   - #bloom
     - 0.413 # prototype substat
-    - 0.72 #r1 proc
+    # - 0.36 #r1 proc
 EleMod:
   - #flake
     - 0.15 # 4pc bs
@@ -57,10 +59,10 @@ DmgMod:
 ResistMod:
   - #flake
     - 0.1 #base resist
-    - -0.15 #Ganyu C1
+    # - -0.15 #Ganyu C1
   - #bloom
     - 0.1 #base resist
-    - -0.15 #Ganyu C1
+    # - -0.15 #Ganyu C1
 DefShredMod:
   - #flake
     - 0 #base

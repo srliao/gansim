@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/csv"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"math/rand"
@@ -10,6 +11,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-echarts/go-echarts/v2/charts"
+	"github.com/go-echarts/go-echarts/v2/components"
+	"github.com/go-echarts/go-echarts/v2/opts"
 	"gopkg.in/yaml.v2"
 )
 
@@ -36,15 +40,19 @@ const (
 )
 
 type config struct {
-	NumSim   int64    `yaml:"NumSim"`
-	Profile  string   `yaml:"Profile"`
-	Output   string   `yaml:"Output"`
-	Profiles []string `yaml:"Profiles"`
+	Profiles    []string `yaml:"Profiles"`
+	GraphOutput string   `yaml:"GraphOutput"`
+	NumSim      int64    `yaml:"NumSim"`
+	BinSize     int64    `yaml:"BinSize"`
+	WriteCSV    bool     `yaml:"WriteCSV"`
+	DamageType  string   `yaml:"DamageType"`
 }
 
 type profile struct {
-	NumSim int64  `yaml:"NumSim"`
-	Output string `yaml:"Output"`
+	NumSim  int64  `yaml:"NumSim"`
+	Output  string `yaml:"Output"`
+	Name    string `yaml:"Name"`
+	SaveCSV bool   `yaml:"SaveCSV"`
 	//character info
 	CharLevel     float64 `yaml:"CharacterLevel"`
 	CharBaseAtk   float64 `yaml:"CharacterBaseAtk"`
@@ -59,11 +67,6 @@ type profile struct {
 	CircletStat    float64   `yaml:"CircletStat"`
 	SubstatFile    string    `yaml:"SubstatFile"`
 	SubstatWeights map[string][]statPrb
-	// FlowerSubstatWeights  []statPrb `yaml:"FlowerSubstatWeights"`
-	// FeatherSubstatWeights []statPrb `yaml:"FeatherSubstatWeights"`
-	// SandSubstatWeights    []statPrb `yaml:"SandSubstatWeights"`
-	// GobletSubstatWeights  []statPrb `yaml:"GobletSubstatWeights"`
-	// CircletSubstatWeights []statPrb `yaml:"CircletSubstatWeights"`
 	//talents list
 	Talents []float64 `yaml:"Talents"`
 	//stat mods
@@ -113,7 +116,7 @@ func main() {
 	}
 	defer f.Close()
 
-	log.Println("reading config file")
+	// log.Println("reading config file")
 	var cfg config
 	decoder := yaml.NewDecoder(f)
 	err = decoder.Decode(&cfg)
@@ -177,14 +180,17 @@ func main() {
 
 	//loop through profiles and run sim for each
 
-	for _, ppath := range cfg.Profiles {
+	histData := make([][]float64, len(cfg.Profiles))
+	labels := make([]string, len(cfg.Profiles))
+
+	for i, ppath := range cfg.Profiles {
 		fp, err := os.Open(ppath)
 		if err != nil {
 			log.Fatal(err)
 		}
 		defer fp.Close()
 
-		log.Printf("reading profile: %v\n", ppath)
+		// log.Printf("reading profile: %v\n", ppath)
 		var prf profile
 		pdecoder := yaml.NewDecoder(fp)
 		err = pdecoder.Decode(&prf)
@@ -236,7 +242,7 @@ func main() {
 				for j := 1; j < len(line); j++ {
 					headers = append(headers, line[j])
 				}
-				fmt.Printf("headers: %v\n", headers)
+				// fmt.Printf("headers: %v\n", headers)
 			} else {
 				//otherwise populate
 				t := line[0]
@@ -257,21 +263,119 @@ func main() {
 			// return?
 		}
 
-		fmt.Printf("starting simulation for profile: %v\n", ppath)
+		labels[i] = prf.Name
+
+		fmt.Printf("starting simulation for profile: %v, n = %v\n", ppath, prf.NumSim)
 		timeStart := time.Now()
-		sim(prf)
+		hist := sim(cfg, prf)
 		elapsed := time.Since(timeStart)
-		log.Printf("Simulation for profile %v took %s", ppath, elapsed)
+		fmt.Printf("Simulation for profile %v took %s\n", ppath, elapsed)
+		histData[i] = hist
 
 	}
 
+	//sim results page
+	page := components.NewPage()
+	lineChart := charts.NewLine()
+	lineChart.SetGlobalOptions(
+		charts.WithTitleOpts(opts.Title{
+			Title: "Probability Density Function",
+		}),
+		charts.WithYAxisOpts(opts.YAxis{
+			Name: "Probability",
+		}),
+		charts.WithXAxisOpts(opts.XAxis{
+			Name: "Avg Dmg",
+		}),
+		// charts.WithTooltipOpts(opts.Tooltip{Show: true}),
+		charts.WithLegendOpts(opts.Legend{Show: true, X: "right", Y: "right", Left: "right", Orient: "vertical"}),
+	)
+	items := make([][]opts.LineData, len(cfg.Profiles))
+	min := make([]float64, len(cfg.Profiles))
+	max := make([]float64, len(cfg.Profiles))
+	avg := make([]float64, len(cfg.Profiles))
+	ss := make([]float64, len(cfg.Profiles))
+	bins := make([][]float64, len(cfg.Profiles))
+
+	//absolute max/min
+	var binMax, binMin float64
+	binMax = -100000000
+	binMin = 100000000
+
+	for i := range min {
+		min[i] = 1000000000
+		max[i] = -1000000000
+	}
+
+	//find the min/max/avg/std
+	for i, hist := range histData {
+		for _, v := range hist {
+			if v < min[i] {
+				min[i] = v
+			}
+			if v > max[i] {
+				max[i] = v
+			}
+			avg[i] += v
+		}
+		avg[i] = avg[i] / float64(len(hist))
+		if binMin > min[i] {
+			binMin = min[i]
+		}
+		if binMax < max[i] {
+			binMax = max[i]
+		}
+	}
+	//calculate bin size
+	binMin = binMin / float64(cfg.BinSize) * float64(cfg.BinSize)
+	binMax = (binMax/float64(cfg.BinSize) + 1.0) * float64(cfg.BinSize)
+	numBin := int64((binMax-binMin)/float64(cfg.BinSize)) + 1
+	xaxis := make([]float64, numBin)
+
+	//bin the data
+	for i, hist := range histData {
+		bins[i] = make([]float64, numBin)
+		for _, v := range hist {
+			ss[i] += (v - avg[i]) * (v - avg[i])
+			//find the steps and bin this
+			steps := int64((v - float64(binMin)) / float64(cfg.BinSize))
+			bins[i][steps]++
+		}
+	}
+
+	for i, b := range bins {
+		for j, v := range b {
+			items[i] = append(items[i], opts.LineData{Value: v / float64(cfg.NumSim)})
+			xaxis[j] = binMin + float64(j)*float64(cfg.BinSize) + float64(cfg.BinSize/2)
+		}
+	}
+
+	lineChart.SetXAxis(xaxis)
+
+	//add items to our chart
+	for i, series := range items {
+		lineChart.AddSeries(labels[i], series)
+	}
+
+	//add all hist data into the charts
+	page.AddCharts(
+		lineChart,
+	)
+	graph, err := os.Create(cfg.GraphOutput)
+	if err != nil {
+		panic(err)
+	}
+	page.Render(io.MultiWriter(graph))
+
 }
 
-func sim(p profile) {
+func sim(cfg config, p profile) []float64 {
 
+	n := cfg.NumSim
+	writeCSV := cfg.WriteCSV
 	//generate some random sets
 	var avg, min, max, progress float64
-	count := p.NumSim
+	count := n
 	min = 10000000 //shouldnt ever get this big...
 	var hist []float64
 
@@ -279,10 +383,10 @@ func sim(p profile) {
 	wcmax := 12
 	resp := make(chan result)
 
-	fmt.Println("n = ", count)
+	// fmt.Println("n = ", count)
 	//keep sending out workers while still simulations left to do
+	fmt.Print("\tProgress: 0%")
 	for count > 0 {
-
 		//send out worker if wc < wcmax
 		if wc < wcmax {
 			go worker(p, resp)
@@ -291,88 +395,98 @@ func sim(p profile) {
 			r := <-resp
 			wc--
 			count--
+
+			val := r.a
+			switch cfg.DamageType {
+			case "normal":
+				val = r.n
+			case "crit":
+				val = r.c
+			}
+
 			//push result to r
-			hist = append(hist, r.a)
-			if r.a < min {
-				min = r.a
+			hist = append(hist, val)
+			if val < min {
+				min = val
 			}
-			if r.a > max {
-				max = r.a
+			if val > max {
+				max = val
 			}
-			avg += r.a
-			if (1 - float64(count)/float64(p.NumSim)) > (progress + 0.1) {
-				progress = (1 - float64(count)/float64(p.NumSim))
-				log.Printf("progress: %.2f %%", 100*progress)
+			avg += val
+			if (1 - float64(count)/float64(n)) > (progress + 0.1) {
+				progress = (1 - float64(count)/float64(n))
+				fmt.Printf("...%.0f%%", 100*progress)
 			}
 		}
 
 	}
+	fmt.Print("...100%%\n")
 
-	avg = avg / float64(p.NumSim)
+	if writeCSV && p.Output != "" {
 
-	//bin it in 200 increments, starting at min rounded down to nearest 200 up to max rounded up to nearest 200
-	var inc int64
-	inc = 200
-	binMin := int64(min/float64(inc)) * inc
-	binMax := (int64(max/float64(inc)) + 1) * inc
-	numBin := (binMax - binMin) / inc
+		avg = avg / float64(n)
 
-	bins := make([]float64, numBin)
+		//bin it in 200 increments, starting at min rounded down to nearest 200 up to max rounded up to nearest 200
+		var inc int64
+		inc = 200
+		binMin := int64(min/float64(inc)) * inc
+		binMax := (int64(max/float64(inc)) + 1) * inc
+		numBin := (binMax - binMin) / inc
 
-	var ss float64
+		bins := make([]float64, numBin)
 
-	//plot out a histogram between min - max, and 20 bins
+		var ss float64
 
-	fmt.Println("step size: ", inc)
+		for _, v := range hist {
+			steps := int64((v - float64(binMin)) / float64(inc))
+			bins[steps]++
+			//calculate the std dev while we're at it
+			ss += (v - avg) * (v - avg)
+		}
 
-	for _, v := range hist {
-		steps := int64((v - float64(binMin)) / float64(inc))
-		bins[steps]++
-		//calculate the std dev while we're at it
-		ss += (v - avg) * (v - avg)
-	}
+		std := math.Sqrt(ss / float64(n))
 
-	std := math.Sqrt(ss / float64(p.NumSim))
+		os.Remove(p.Output)
+		file, err := os.Create(p.Output)
+		if err != nil {
+			log.Panicln(err)
+		}
+		defer file.Close()
+		writer := csv.NewWriter(file)
+		defer writer.Flush()
 
-	os.Remove(p.Output)
-	file, err := os.Create(p.Output)
-	if err != nil {
-		log.Panicln(err)
-	}
-	defer file.Close()
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
+		for i, v := range bins {
+			start := strconv.FormatInt(binMin+int64(i)*inc, 10)
+			end := strconv.FormatInt(binMin+int64(i+1)*inc, 10)
 
-	for i, v := range bins {
-		start := strconv.FormatInt(binMin+int64(i)*inc, 10)
-		end := strconv.FormatInt(binMin+int64(i+1)*inc, 10)
+			if err := writer.Write([]string{
+				strconv.FormatInt(int64(i), 10),
+				start,
+				end,
+				strconv.FormatInt(int64(v), 10),
+			}); err != nil {
+				log.Panicln(err)
+			}
+		}
 
 		if err := writer.Write([]string{
-			strconv.FormatInt(int64(i), 10),
-			start,
-			end,
-			strconv.FormatInt(int64(v), 10),
+			"avg",
+			strconv.FormatFloat(avg, 'f', 6, 64),
 		}); err != nil {
 			log.Panicln(err)
 		}
+
+		if err := writer.Write([]string{
+			"std dev",
+			strconv.FormatFloat(std, 'f', 6, 64),
+		}); err != nil {
+			log.Panicln(err)
+		}
+
+		fmt.Printf("std dev: %v, avg: %v, min: %v, max: %v\n", std, avg, min, max)
 	}
 
-	if err := writer.Write([]string{
-		"avg",
-		strconv.FormatFloat(avg, 'f', 6, 64),
-	}); err != nil {
-		log.Panicln(err)
-	}
-
-	if err := writer.Write([]string{
-		"std dev",
-		strconv.FormatFloat(std, 'f', 6, 64),
-	}); err != nil {
-		log.Panicln(err)
-	}
-
-	fmt.Printf("std dev: %v, avg: %v, min: %v, max: %v\n", std, avg, min, max)
-
+	return hist
 }
 
 type result struct {

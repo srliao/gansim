@@ -1,6 +1,8 @@
 #sim info
+SaveCSV: false
 Output: "prototype-r1.csv"
-NumSim: 10000000
+NumSim: 1000000
+Label: "Proto R1 w/ Proc"
 
 #base stats
 CharacterLevel: 90
@@ -57,10 +59,10 @@ DmgMod:
 ResistMod:
   - #flake
     - 0.1 #base resist
-    - -0.15 #Ganyu C1
+    # - -0.15 #Ganyu C1
   - #bloom
     - 0.1 #base resist
-    - -0.15 #Ganyu C1
+    # - -0.15 #Ganyu C1
 DefShredMod:
   - #flake
     - 0 #base

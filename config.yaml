@@ -1,8 +1,13 @@
-Profile: "./ganyu-talent6-amos-r1.yaml"
-NumSim: 10000000
-Output: "./result.csv"
+GraphOutput: "./graphs/out.html"
+NumSim: 10000
+BinSize: 200
+WriteCSV: false
+DamageType: "avg" #normal, avg, crit
 Profiles:
-  - "./ganyu-talent6-amos-r1.yaml"
-  - "./ganyu-talent6-prototype-r1.yaml"
-  - "./ganyu-talent6-prototype-r4.yaml"
-  - "./ganyu-talent6-prototype-r5.yaml"
+  # - "./profiles/ganyu-talent6-amos-r1.yaml"
+  - "./profiles/ganyu-talent6-prototype-r1.yaml"
+  # - "./profiles/ganyu-talent6-prototype-r4.yaml"
+  # - "./profiles/ganyu-talent6-prototype-r5.yaml"
+  - "./profiles/ganyu-talent6-prototype-r1-noproc.yaml"
+  - "./profiles/ganyu-talent6-blackcliff-r1-3-stack.yaml"
+  - "./profiles/ganyu-talent6-blackcliff-r1-0-stack.yaml"

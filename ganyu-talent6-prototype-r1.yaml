@@ -1,0 +1,66 @@
+CharacterLevel: 90
+CharacterBaseAtk: 335 #lvl 90 base dmg
+WeaponBaseAtk: 510 #lvl 90 prototype
+EnemyLevel: 100
+
+# main stat to use for sands/goblet/circlet
+Sands: "ATK%"
+Goblet: "Ele%"
+Circlet: "CD"
+# max value for main stats
+SandsStat: 0.466
+GobletStat: 0.466
+CircletStat: 0.622
+
+Talents: #list of talents to execute and their dmg%
+  - 1.792 #lvl 6 flake
+  - 3.0464 #lvl 6 bloom
+#mods should be a list of lists, one set of mods for each talent to execute
+AtkMod:
+  - #flake
+    - 0.413 # prototype substat
+    - 0.36 #r1 proc
+  - #bloom
+    - 0.413 # prototype substat
+    - 0.36 #r1 proc
+EleMod:
+  - #flake
+    - 0.15 # 4pc bs
+  - #bloom
+    - 0.15 # 4pc bs
+CCMod:
+  - #flake
+    - 0.05 #base crit
+    - 0.2 # 4pc bs
+    - 0.2 # frozen
+  - #bloom
+    - 0.05 #base crit
+    - 0.2 # 4pc bs
+    - 0.2 # frozen
+CDMod:
+  - #flake
+    - 0.5 #base cd
+    - 0.384 #ganyu ascension
+  - #bloom
+    - 0.5 #base cd
+    - 0.384 #ganyu ascension
+DmgMod:
+  - #flake
+    - 0
+  - #bloom
+    - 0
+ResistMod:
+  - #flake
+    - 0.1 #base resist
+    - -0.15 #Ganyu C1
+  - #bloom
+    - 0.1 #base resist
+    - -0.15 #Ganyu C1
+DefShredMod:
+  - #flake
+    - 0 #base
+  - #bloom
+    - 0 #base
+
+#weights
+SubstatFile: "./substats.csv"

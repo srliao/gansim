@@ -1,0 +1,3 @@
+Profile: "./ganyu-talent6-prototype.yaml"
+NumSim: 10000000
+Output: "./result.csv"

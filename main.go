@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"os"
 	"strconv"
@@ -307,7 +308,8 @@ func sim(p profile) {
 
 	}
 
-	fmt.Printf("avg: %v, min: %v, max: %v\n", avg/float64(p.NumSim), min, max)
+	avg = avg / float64(p.NumSim)
+
 	//bin it in 200 increments, starting at min rounded down to nearest 200 up to max rounded up to nearest 200
 	var inc int64
 	inc = 200
@@ -317,6 +319,8 @@ func sim(p profile) {
 
 	bins := make([]float64, numBin)
 
+	var ss float64
+
 	//plot out a histogram between min - max, and 20 bins
 
 	fmt.Println("step size: ", inc)
@@ -324,7 +328,11 @@ func sim(p profile) {
 	for _, v := range hist {
 		steps := int64((v - float64(binMin)) / float64(inc))
 		bins[steps]++
+		//calculate the std dev while we're at it
+		ss += (v - avg) * (v - avg)
 	}
+
+	std := math.Sqrt(ss / float64(p.NumSim))
 
 	os.Remove(p.Output)
 	file, err := os.Create(p.Output)
@@ -348,6 +356,22 @@ func sim(p profile) {
 			log.Panicln(err)
 		}
 	}
+
+	if err := writer.Write([]string{
+		"avg",
+		strconv.FormatFloat(avg, 'f', 6, 64),
+	}); err != nil {
+		log.Panicln(err)
+	}
+
+	if err := writer.Write([]string{
+		"std dev",
+		strconv.FormatFloat(std, 'f', 6, 64),
+	}); err != nil {
+		log.Panicln(err)
+	}
+
+	fmt.Printf("std dev: %v, avg: %v, min: %v, max: %v\n", std, avg, min, max)
 
 }
 

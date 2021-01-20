@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"math"
 	"math/rand"
@@ -67,16 +68,17 @@ type profile struct {
 	CircletStat    float64   `yaml:"CircletStat"`
 	SubstatFile    string    `yaml:"SubstatFile"`
 	SubstatWeights map[string][]statPrb
-	//talents list
-	Talents []float64 `yaml:"Talents"`
-	//stat mods
-	AtkMod      [][]float64 `yaml:"AtkMod"`
-	EleMod      [][]float64 `yaml:"EleMod"`
-	CCMod       [][]float64 `yaml:"CCMod"`
-	CDMod       [][]float64 `yaml:"CDMod"`
-	DmgMod      [][]float64 `yaml:"DmgMod"`
-	ResistMod   [][]float64 `yaml:"ResistMod"`
-	DefShredMod [][]float64 `yaml:"DefShredMod"`
+	//abilities
+	Abilities []struct {
+		Talent      float64   `yaml:"Talent"`
+		AtkMod      []float64 `yaml:"AtkMod"`
+		EleMod      []float64 `yaml:"EleMod"`
+		CCMod       []float64 `yaml:"CCMod"`
+		CDMod       []float64 `yaml:"CDMod"`
+		DmgMod      []float64 `yaml:"DmgMod"`
+		ResistMod   []float64 `yaml:"ResistMod"`
+		DefShredMod []float64 `yaml:"DefShredMod"`
+	} `yaml:"Abilities"`
 }
 
 type stat struct {
@@ -184,41 +186,18 @@ func main() {
 	labels := make([]string, len(cfg.Profiles))
 
 	for i, ppath := range cfg.Profiles {
-		fp, err := os.Open(ppath)
+
+		source, err := ioutil.ReadFile(ppath)
 		if err != nil {
 			log.Fatal(err)
 		}
-		defer fp.Close()
 
 		// log.Printf("reading profile: %v\n", ppath)
 		var prf profile
-		pdecoder := yaml.NewDecoder(fp)
-		err = pdecoder.Decode(&prf)
+
+		err = yaml.Unmarshal(source, &prf)
 		if err != nil {
 			log.Fatal(err)
-		}
-
-		//profile sanity check
-		if len(prf.AtkMod) < len(prf.Talents) {
-			log.Panicln("invalid # of AtkMod")
-		}
-		if len(prf.EleMod) < len(prf.Talents) {
-			log.Panicln("invalid # of EleMod")
-		}
-		if len(prf.CCMod) < len(prf.Talents) {
-			log.Panicln("invalid # of CCMod")
-		}
-		if len(prf.CDMod) < len(prf.Talents) {
-			log.Panicln("invalid # of CDMod")
-		}
-		if len(prf.DmgMod) < len(prf.Talents) {
-			log.Panicln("invalid # of DmgMod")
-		}
-		if len(prf.ResistMod) < len(prf.Talents) {
-			log.Panicln("invalid # of ResistMod")
-		}
-		if len(prf.DefShredMod) < len(prf.Talents) {
-			log.Panicln("invalid # of DefShredMod")
 		}
 
 		prf.SubstatWeights = make(map[string][]statPrb)
@@ -262,6 +241,8 @@ func main() {
 			test(prf)
 			// return?
 		}
+
+		// fmt.Printf("%v\n", prf.Abilities)
 
 		labels[i] = prf.Label
 
@@ -694,9 +675,9 @@ func calc(a artifacts, p profile) []result {
 	var r []result
 
 	//loop through each talent
-	for i, t := range p.Talents {
+	for _, ab := range p.Abilities {
 		//calculate total atk
-		var totalAtk, atkp, cc, cd, atk, elep, dmgBonus, defAdj, resist float64
+		var totalAtk, atkp, cc, cd, atk, elep, dmgBonus, defAdj, resAdj, resist float64
 		//base atk
 		totalAtk = p.CharBaseAtk + p.WeaponBaseAtk
 		atk += artSubStat[sATK]
@@ -712,34 +693,34 @@ func calc(a artifacts, p profile) []result {
 
 		//add up def shreds
 		var defShred float64
-		for _, v := range p.DefShredMod[i] {
+		for _, v := range ab.DefShredMod {
 			defShred += v
 		}
 		//calculate def adjustment
 		defAdj = (100 + p.CharLevel) / ((100 + p.CharLevel) + (100+p.EnemyLevel)*(1-defShred))
 
 		//add up atk % mods
-		for _, v := range p.AtkMod[i] {
+		for _, v := range ab.AtkMod {
 			atkp += v
 		}
 
 		totalAtk = totalAtk*(1+atkp) + atk
 
 		//add up dmg mods
-		for _, v := range p.EleMod[i] {
+		for _, v := range ab.EleMod {
 			dmgBonus += v
 		}
-		for _, v := range p.DmgMod[i] {
+		for _, v := range ab.DmgMod {
 			dmgBonus += v
 		}
 
 		dmgBonus += elep //add in ele bonus from artifacts
 
 		//add up crit mods
-		for _, v := range p.CCMod[i] {
+		for _, v := range ab.CCMod {
 			cc += v
 		}
-		for _, v := range p.CDMod[i] {
+		for _, v := range ab.CDMod {
 			cd += v
 		}
 
@@ -749,26 +730,37 @@ func calc(a artifacts, p profile) []result {
 		}
 
 		//calculate enemy resistance
-		for _, v := range p.ResistMod[i] {
-			//if v will bring resist to negative, the half the portion that brings it to negative
-			if resist+v < 0 {
-				//if resist is already negative
-				if resist < 0 {
-					//if v is positive?? just don't list it this way
-					if v >= 0 {
-						resist += v
-					} else {
-						//half the effect of v
-						resist += v / 2
-					}
-				} else {
-					temp := v + resist
-					resist = 0
-					resist += temp / 2
-				}
-			} else {
-				resist += v
-			}
+		//TODO: not entirely sure this formula is correct??
+		//this formula suggests something diff: https://www.reddit.com/r/Genshin_Impact/comments/krg2ic/the_complete_genshin_impact_damage_formula/
+		for _, v := range ab.ResistMod {
+			resist += v
+			// //if v will bring resist to negative, the half the portion that brings it to negative
+			// if resist+v < 0 {
+			// 	//if resist is already negative
+			// 	if resist < 0 {
+			// 		//if v is positive?? just don't list it this way
+			// 		if v >= 0 {
+			// 			resist += v
+			// 		} else {
+			// 			//half the effect of v
+			// 			resist += v / 2
+			// 		}
+			// 	} else {
+			// 		temp := v + resist
+			// 		resist = 0
+			// 		resist += temp / 2
+			// 	}
+			// } else {
+			// 	resist += v
+			// }
+		}
+
+		if resist < 0 {
+			resAdj = 1 - (resist / 2)
+		} else if resist < 0.75 {
+			resAdj = 1 - resist
+		} else {
+			resAdj = 1 / (4*resist + 1)
 		}
 
 		if showDebug {
@@ -781,7 +773,7 @@ func calc(a artifacts, p profile) []result {
 			fmt.Printf("\tenemy resist: %.4f\n", resist)
 		}
 
-		normalDmg := totalAtk * (1 + dmgBonus) * t * defAdj * (1 - resist)
+		normalDmg := totalAtk * (1 + dmgBonus) * ab.Talent * defAdj * resAdj
 		critDmg := normalDmg * (1 + cd)
 		avgDmg := normalDmg * (1 + (cc * cd))
 

@@ -4,10 +4,10 @@ BinSize: 100
 WriteCSV: false
 DamageType: "avg" #normal, avg, crit
 Profiles:
-  # - "./profiles/ganyu-talent6-amos-r1.yaml"
+  - "./profiles/ganyu-talent6-amos-r1.yaml"
   - "./profiles/ganyu-talent6-prototype-r1.yaml"
-  # - "./profiles/ganyu-talent6-prototype-r4.yaml"
-  # - "./profiles/ganyu-talent6-prototype-r5.yaml"
+  - "./profiles/ganyu-talent6-prototype-r4.yaml"
+  - "./profiles/ganyu-talent6-prototype-r5.yaml"
   - "./profiles/ganyu-talent6-prototype-r1-noproc.yaml"
   - "./profiles/ganyu-talent6-blackcliff-r1-3-stack.yaml"
   - "./profiles/ganyu-talent6-blackcliff-r1-0-stack.yaml"

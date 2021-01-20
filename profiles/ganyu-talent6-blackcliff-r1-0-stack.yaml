@@ -18,58 +18,49 @@ Circlet: "CD"
 SandsStat: 0.466
 GobletStat: 0.466
 CircletStat: 0.622
-
-Talents: #list of talents to execute and their dmg%
-  - 1.792 #lvl 6 flake
-  - 3.0464 #lvl 6 bloom
-#mods should be a list of lists, one set of mods for each talent to execute
-AtkMod:
-  - #flake
-    # - 0.36 # r1 3 stack
-    - 0
-  - #bloom
-    # - 0.36 # r1 3 stack
-    - 0
-EleMod:
-  - #flake
-    - 0.15 # 4pc bs
-  - #bloom
-    - 0.15 # 4pc bs
-CCMod:
-  - #flake
-    - 0.05 #base crit
-    - 0.2 # 4pc bs
-    - 0.2 # frozen
-  - #bloom
-    - 0.05 #base crit
-    - 0.2 # 4pc bs
-    - 0.2 # frozen
-CDMod:
-  - #flake
-    - 0.5 #base cd
-    - 0.384 #ganyu ascension
-    - 0.368 #blackcliff lvl 90
-  - #bloom
-    - 0.5 #base cd
-    - 0.384 #ganyu ascension
-    - 0.368 #blackcliff lvl 90
-DmgMod:
-  - #flake
-    - 0
-  - #bloom
-    - 0
-ResistMod:
-  - #flake
-    - 0.1 #base resist
-    # - -0.15 #Ganyu C1
-  - #bloom
-    - 0.1 #base resist
-    # - -0.15 #Ganyu C1
-DefShredMod:
-  - #flake
-    - 0 #base
-  - #bloom
-    - 0 #base
-
 #weights
 SubstatFile: "./substats.csv"
+
+Abilities:
+  #flake
+  - Talent: 1.792
+    AtkMod:
+      - 0 #sub stat
+    EleMod:
+      - 0.15 #2pc bs
+    CCMod:
+      - 0.05 #base crit
+      - 0.2 # 4pc bs
+      - 0.2 # frozen
+    CDMod:
+      - 0.5 #base cd
+      - 0.384 #ganyu ascension
+      - 0.368 #blackcliff lvl 90
+    DmgMod:
+      - 0
+    ResistMod:
+      - 0.1 #base resist
+      # - -0.15 #Ganyu C1
+    DefShredMod:
+      - 0
+  #bloom
+  - Talent: 3.0464
+    AtkMod:
+      - 0 #sub stat
+    EleMod:
+      - 0.15 #2pc bs
+    CCMod:
+      - 0.05 #base crit
+      - 0.2 # 4pc bs
+      - 0.2 # frozen
+    CDMod:
+      - 0.5 #base cd
+      - 0.384 #ganyu ascension
+      - 0.368 #blackcliff lvl 90
+    DmgMod:
+      - 0
+    ResistMod:
+      - 0.1 #base resist
+      # - -0.15 #Ganyu C1
+    DefShredMod:
+      - 0

@@ -41,13 +41,17 @@ const (
 )
 
 type config struct {
-	Profiles    []string `yaml:"Profiles"`
-	GraphOutput string   `yaml:"GraphOutput"`
-	NumSim      int64    `yaml:"NumSim"`
-	BinSize     int64    `yaml:"BinSize"`
-	WriteCSV    bool     `yaml:"WriteCSV"`
-	DamageType  string   `yaml:"DamageType"`
-	NumWorker   int64    `yaml:"NumWorker"`
+	Profiles        []string `yaml:"Profiles"`
+	GraphOutput     string   `yaml:"GraphOutput"`
+	NumSim          int64    `yaml:"NumSim"`
+	BinSize         int64    `yaml:"BinSize"`
+	WriteCSV        bool     `yaml:"WriteCSV"`
+	DamageType      string   `yaml:"DamageType"`
+	NumWorker       int64    `yaml:"NumWorker"`
+	MainStatFile    string   `yaml:"MainStatFile"`
+	SubstatTierFile string   `yaml:"SubstatTierFile"`
+	MainStatScaling map[statTypes][]float64
+	SubstatTier     []map[statTypes]float64
 }
 
 type profile struct {
@@ -61,14 +65,12 @@ type profile struct {
 	WeaponBaseAtk float64 `yaml:"WeaponBaseAtk"`
 	EnemyLevel    float64 `yaml:"EnemyLevel"`
 	//artifact info
-	Sands          statTypes `yaml:"Sands"`
-	Goblet         statTypes `yaml:"Goblet"`
-	Circlet        statTypes `yaml:"Circlet"`
-	SandsStat      float64   `yaml:"SandsStat"`
-	GobletStat     float64   `yaml:"GobletStat"`
-	CircletStat    float64   `yaml:"CircletStat"`
-	SubstatFile    string    `yaml:"SubstatFile"`
-	SubstatWeights map[string][]statPrb
+	ArtifactMaxLevel int64     `yaml:"ArtifactMaxLevel"`
+	Sands            statTypes `yaml:"Sands"`
+	Goblet           statTypes `yaml:"Goblet"`
+	Circlet          statTypes `yaml:"Circlet"`
+	SubstatFile      string    `yaml:"SubstatFile"`
+	SubstatWeights   map[string][]statPrb
 	//abilities
 	Abilities []struct {
 		Talent      float64   `yaml:"Talent"`
@@ -105,8 +107,6 @@ type artifacts struct {
 	Circlet artifact
 }
 
-var subtier []map[statTypes]float64
-
 func main() {
 	// runtime.GOMAXPROCS(12)
 	//read config
@@ -128,58 +128,18 @@ func main() {
 	}
 	// fmt.Println(cfg)
 
-	//initialize stat maps
-	t1 := make(map[statTypes]float64)
-	t1[sHP] = 209
-	t1[sDEF] = 16
-	t1[sATK] = 14
-	t1[sHPP] = 0.041
-	t1[sDEFP] = 0.051
-	t1[sATKP] = 0.041
-	t1[sEM] = 16
-	t1[sER] = 0.045
-	t1[sCC] = 0.027
-	t1[sCD] = 0.054
-	t2 := make(map[statTypes]float64)
-	t2[sHP] = 239
-	t2[sDEF] = 19
-	t2[sATK] = 16
-	t2[sHPP] = 0.047
-	t2[sDEFP] = 0.058
-	t2[sATKP] = 0.047
-	t2[sEM] = 19
-	t2[sER] = 0.052
-	t2[sCC] = 0.031
-	t2[sCD] = 0.062
-	t3 := make(map[statTypes]float64)
-	t3[sHP] = 269
-	t3[sDEF] = 21
-	t3[sATK] = 18
-	t3[sHPP] = 0.053
-	t3[sDEFP] = 0.066
-	t3[sATKP] = 0.053
-	t3[sEM] = 21
-	t3[sER] = 0.058
-	t3[sCC] = 0.035
-	t3[sCD] = 0.07
-	t4 := make(map[statTypes]float64)
-	t4[sHP] = 299
-	t4[sDEF] = 23
-	t4[sATK] = 19
-	t4[sHPP] = 0.058
-	t4[sDEFP] = 0.073
-	t4[sATKP] = 0.058
-	t4[sEM] = 23
-	t4[sER] = 0.065
-	t4[sCC] = 0.039
-	t4[sCD] = 0.078
+	subtier, err := loadSubstatTier(cfg.SubstatTierFile)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	subtier = append(subtier, t1)
-	subtier = append(subtier, t2)
-	subtier = append(subtier, t3)
-	subtier = append(subtier, t4)
+	cfg.SubstatTier = subtier
 
-	rand.Seed(time.Now().UTC().UnixNano())
+	msscaling, err := loadMainStatScaling(cfg.MainStatFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	cfg.MainStatScaling = msscaling
 
 	//loop through profiles and run sim for each
 
@@ -245,7 +205,7 @@ func main() {
 
 		// fmt.Printf("%v\n", prf.Abilities)
 
-		labels[i] = prf.Label
+		labels[i] = fmt.Sprintf("%v [lvl %v]", prf.Label, prf.ArtifactMaxLevel)
 
 		fmt.Printf("starting simulation for profile: %v, n = %v\n", ppath, cfg.NumSim)
 		timeStart := time.Now()
@@ -361,9 +321,6 @@ func main() {
 	}
 	page.Render(io.MultiWriter(graph))
 
-	fmt.Println("Press the any key to exit...")
-	fmt.Scanln()
-
 }
 
 func sim(cfg config, p profile) []float64 {
@@ -388,7 +345,7 @@ func sim(cfg config, p profile) []float64 {
 	req := make(chan bool)
 	done := make(chan bool)
 	for i := 0; i < int(cfg.NumWorker); i++ {
-		go worker(p, resp, req, done)
+		go worker(cfg, p, resp, req, done)
 	}
 
 	//use a go routine to send out a job whenever a worker is done
@@ -505,7 +462,7 @@ type result struct {
 	a float64
 }
 
-func worker(p profile, resp chan result, req chan bool, done chan bool) {
+func worker(cfg config, p profile, resp chan result, req chan bool, done chan bool) {
 	//create our own rand source
 	source := rand.NewSource(time.Now().UnixNano())
 	generator := rand.New(source)
@@ -515,7 +472,7 @@ func worker(p profile, resp chan result, req chan bool, done chan bool) {
 		case <-done:
 			return
 		}
-		art := genArtifacts(p, generator)
+		art := genArtifacts(cfg, p, generator)
 		if showDebug {
 			fmt.Printf("artifacts: %v\n", art)
 		}
@@ -533,21 +490,68 @@ func worker(p profile, resp chan result, req chan bool, done chan bool) {
 }
 
 //generate a set of artifacts given the configs
-func genArtifacts(p profile, generator *rand.Rand) artifacts {
+func genArtifacts(cfg config, p profile, generator *rand.Rand) artifacts {
 	var r artifacts
 	//flower is always hp = 4780
-	r.Flower = randArtifact(stat{t: sHP, s: 4780}, p.SubstatWeights["flower"], generator)
+	r.Flower = randArtifact(
+		cfg,
+		p.ArtifactMaxLevel,
+		stat{
+			t: sHP,
+			s: cfg.MainStatScaling[sHP][p.ArtifactMaxLevel],
+		},
+		p.SubstatWeights["flower"],
+		generator,
+	)
 	//feather is always flat atk 311
-	r.Feather = randArtifact(stat{t: sATK, s: 311}, p.SubstatWeights["feather"], generator)
+	r.Feather = randArtifact(
+		cfg,
+		p.ArtifactMaxLevel,
+		stat{
+			t: sATK,
+			s: cfg.MainStatScaling[sATK][p.ArtifactMaxLevel],
+		},
+		p.SubstatWeights["feather"],
+		generator,
+	)
 	//sands is always % atk 46.6%
-	r.Sands = randArtifact(stat{t: p.Sands, s: p.SandsStat}, p.SubstatWeights["sands"], generator)
+	r.Sands = randArtifact(
+		cfg,
+		p.ArtifactMaxLevel,
+		stat{
+			t: p.Sands,
+			s: cfg.MainStatScaling[p.Sands][p.ArtifactMaxLevel],
+		},
+		p.SubstatWeights["sands"],
+		generator,
+	)
 	//goblet is always % ele 46.6%
-	r.Goblet = randArtifact(stat{t: p.Goblet, s: p.GobletStat}, p.SubstatWeights["goblet"], generator)
+	// r.Goblet = randArtifact(cfg, stat{t: p.Goblet, s: p.GobletStat}, p.SubstatWeights["goblet"], generator)
+	r.Goblet = randArtifact(
+		cfg,
+		p.ArtifactMaxLevel,
+		stat{
+			t: p.Goblet,
+			s: cfg.MainStatScaling[p.Goblet][p.ArtifactMaxLevel],
+		},
+		p.SubstatWeights["goblet"],
+		generator,
+	)
 	//circlet is always crit dmg 62.20%
-	r.Circlet = randArtifact(stat{t: p.Circlet, s: p.CircletStat}, p.SubstatWeights["circlet"], generator)
+	r.Circlet = randArtifact(
+		cfg,
+		p.ArtifactMaxLevel,
+		stat{
+			t: p.Circlet,
+			s: cfg.MainStatScaling[p.Circlet][p.ArtifactMaxLevel],
+		},
+		p.SubstatWeights["circlet"],
+		generator,
+	)
+	maxUp := p.ArtifactMaxLevel / 4
 	//do some sanity checks on sub stat
 	for _, v := range r.Flower.Sub {
-		max := subtier[3][v.t] * 5
+		max := cfg.SubstatTier[3][v.t] * float64(maxUp)
 		if v.s > max {
 			log.Panicf("invalid flower detected, substat %v exceed 5x max tier. %v\n", v.t, r)
 		}
@@ -556,7 +560,7 @@ func genArtifacts(p profile, generator *rand.Rand) artifacts {
 		}
 	}
 	for _, v := range r.Feather.Sub {
-		max := subtier[3][v.t] * 5
+		max := cfg.SubstatTier[3][v.t] * float64(maxUp)
 		if v.s > max {
 			log.Panicf("invalid feather detected, substat %v exceed 5x max tier. %v\n", v.t, r)
 		}
@@ -565,7 +569,7 @@ func genArtifacts(p profile, generator *rand.Rand) artifacts {
 		}
 	}
 	for _, v := range r.Sands.Sub {
-		max := subtier[3][v.t] * 5
+		max := cfg.SubstatTier[3][v.t] * float64(maxUp)
 		if v.s > max {
 			log.Panicf("invalid sands detected, substat %v exceed 5x max tier. %v\n", v.t, r)
 		}
@@ -574,7 +578,7 @@ func genArtifacts(p profile, generator *rand.Rand) artifacts {
 		}
 	}
 	for _, v := range r.Goblet.Sub {
-		max := subtier[3][v.t] * 5
+		max := cfg.SubstatTier[3][v.t] * float64(maxUp)
 		if v.s > max {
 			log.Panicf("invalid goblet detected, substat %v exceed 5x max tier. %v\n", v.t, r)
 		}
@@ -583,7 +587,7 @@ func genArtifacts(p profile, generator *rand.Rand) artifacts {
 		}
 	}
 	for _, v := range r.Circlet.Sub {
-		max := subtier[3][v.t] * 5
+		max := cfg.SubstatTier[3][v.t] * float64(maxUp)
 		if v.s > max {
 			log.Panicf("invalid circlet detected, substat %v exceed 5x max tier. %v\n", v.t, r)
 		}
@@ -595,7 +599,7 @@ func genArtifacts(p profile, generator *rand.Rand) artifacts {
 }
 
 //randArtifact creates a random artifact given the main stat, assume statPrb adds up to 1
-func randArtifact(main stat, prb []statPrb, generator *rand.Rand) artifact {
+func randArtifact(cfg config, lvl int64, main stat, prb []statPrb, generator *rand.Rand) artifact {
 	var r artifact
 	r.Main.s = main.s
 	r.Main.t = main.t
@@ -618,7 +622,13 @@ func randArtifact(main stat, prb []statPrb, generator *rand.Rand) artifact {
 		next = append(next, v)
 	}
 
-	for i := 0; i < 4; i++ {
+	//if artifact lvl is less than 4 AND lines =3, then we only want to roll 3 substats
+	n := 4
+	if lvl < 4 && lines < 4 {
+		n = 3
+	}
+
+	for i := 0; i < n; i++ {
 		var current []statPrb
 		var check float64
 		for _, v := range next {
@@ -642,7 +652,7 @@ func randArtifact(main stat, prb []statPrb, generator *rand.Rand) artifact {
 				//roll 1 to 4 for tier
 				//ASSUMPTION = equal weight for each tier
 				tier := generator.Intn(4)
-				val := subtier[tier][v.t]
+				val := cfg.SubstatTier[tier][v.t]
 				r.Sub = append(r.Sub, stat{
 					t: v.t,
 					s: val,
@@ -656,25 +666,19 @@ func randArtifact(main stat, prb []statPrb, generator *rand.Rand) artifact {
 		}
 	}
 
-	if len(r.Sub) != 4 {
-		log.Panicln("expected to have 4 substat lines here, got ", len(r.Sub))
+	//check how many upgrades to do
+	up := lvl / 4
+
+	//if we started w 3 lines, then subtract one from # of upgrades
+	if lines == 3 {
+		up--
 	}
 
-	//if line == 4, then upgrade once, otherwise skip since first roll will be the 4th line
-	if lines == 4 {
-		//upgrade
-		//ASSUMPTION EQUAL CHANCE OF UPGRADING EACH STAT PROB NOT TRUE???
-		i := generator.Intn(4)
-		tier := generator.Intn(4)
-		r.Sub[i].s += subtier[tier][r.Sub[i].t]
-
-	}
-
-	//do 4 more rolls, +8/+12/+16/+20
-	for i := 0; i < 4; i++ {
+	//do more rolls, +4/+8/+12/+16/+20
+	for i := 0; i < int(up); i++ {
 		pick := generator.Intn(4)
 		tier := generator.Intn(4)
-		r.Sub[pick].s += subtier[tier][r.Sub[pick].t]
+		r.Sub[pick].s += cfg.SubstatTier[tier][r.Sub[pick].t]
 	}
 
 	return r
@@ -899,4 +903,86 @@ func test(p profile) {
 	for i, v := range r {
 		fmt.Printf("Talent %v normal %.0f, crit %.0f, avg %.0f\n", i, v.n, v.c, v.a)
 	}
+}
+
+func loadMainStatScaling(path string) (map[statTypes][]float64, error) {
+	//load substat weights
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	reader := csv.NewReader(f)
+	lines, err := reader.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[statTypes][]float64)
+
+	if len(lines) < 13 {
+		return nil, fmt.Errorf("unexpectedly short main stat scaling file")
+	}
+
+	for i := 1; i < len(lines); i++ {
+		line := lines[i]
+
+		if len(line) < 22 {
+			return nil, fmt.Errorf("unexpectedly short line %v", i)
+		}
+
+		for j := 1; j < len(line); j++ {
+			val, err := strconv.ParseFloat(line[j], 64)
+			if err != nil {
+				fmt.Printf("main stat scale - err parsing float at line: %v, pos: %v, line = %v\n", i, j, line[j])
+				return nil, err
+			}
+			result[statTypes(line[0])] = append(result[statTypes(line[0])], val)
+		}
+	}
+	return result, nil
+}
+
+func loadSubstatTier(path string) ([]map[statTypes]float64, error) {
+	//load substat weights
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	reader := csv.NewReader(f)
+	lines, err := reader.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+	var result []map[statTypes]float64
+	//initialize the maps
+	for i := 0; i < 4; i++ {
+		result = append(result, make(map[statTypes]float64))
+	}
+
+	if len(lines) < 2 {
+		return nil, fmt.Errorf("unexpectedly short substat tier file")
+	}
+
+	for i := 1; i < len(lines); i++ {
+		line := lines[i]
+
+		if len(line) < 5 {
+			return nil, fmt.Errorf("unexpectedly short line %v", i)
+		}
+
+		for j := 1; j < len(line); j++ {
+			val, err := strconv.ParseFloat(line[j], 64)
+			if err != nil {
+				fmt.Printf("substat tier - err parsing float at line: %v, pos: %v, line = %v\n", i, j, line[j])
+				return nil, err
+			}
+
+			result[j-1][statTypes(line[0])] = val
+		}
+
+	}
+	return result, nil
 }

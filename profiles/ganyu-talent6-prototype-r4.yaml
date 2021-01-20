@@ -14,10 +14,7 @@ EnemyLevel: 100
 Sands: "ATK%"
 Goblet: "Ele%"
 Circlet: "CD"
-# max value for main stats
-SandsStat: 0.466
-GobletStat: 0.466
-CircletStat: 0.622
+ArtifactMaxLevel: 20
 #weights
 SubstatFile: "./substats.csv"
 

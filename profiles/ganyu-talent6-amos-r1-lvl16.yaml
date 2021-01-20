@@ -1,20 +1,19 @@
 #sim info
 SaveCSV: false
-Output: "blackcliff-r1-3stack.csv"
-NumSim: 100000
-Label: "BC R1 3 Stack"
+Output: "amos-r1.csv"
+Label: "Amos R1"
 
 #base stats
 CharacterLevel: 90
 CharacterBaseAtk: 335 #lvl 90 base dmg
-WeaponBaseAtk: 565 #lvl 90 prototype
+WeaponBaseAtk: 608 #lvl 90 prototype
 EnemyLevel: 100
 
 # main stat to use for sands/goblet/circlet
 Sands: "ATK%"
 Goblet: "Ele%"
 Circlet: "CD"
-ArtifactMaxLevel: 20
+ArtifactMaxLevel: 16
 #weights
 SubstatFile: "./substats.csv"
 
@@ -22,7 +21,7 @@ Abilities:
   #flake
   - Talent: 1.792
     AtkMod:
-      - 0.36 # r1 3 stack
+      - 0.496 #sub stat
     EleMod:
       - 0.15 #2pc bs
     CCMod:
@@ -32,9 +31,8 @@ Abilities:
     CDMod:
       - 0.5 #base cd
       - 0.384 #ganyu ascension
-      - 0.368 #blackcliff lvl 90
     DmgMod:
-      - 0
+      - .52 #amos 0.5 dmg mod
     ResistMod:
       - 0.1 #base resist
       # - -0.15 #Ganyu C1
@@ -43,7 +41,7 @@ Abilities:
   #bloom
   - Talent: 3.0464
     AtkMod:
-      - 0.36 # r1 3 stack
+      - 0.496 #sub stat
     EleMod:
       - 0.15 #2pc bs
     CCMod:
@@ -53,9 +51,8 @@ Abilities:
     CDMod:
       - 0.5 #base cd
       - 0.384 #ganyu ascension
-      - 0.368 #blackcliff lvl 90
     DmgMod:
-      - 0
+      - .52 #amos 0.5 dmg mod
     ResistMod:
       - 0.1 #base resist
       # - -0.15 #Ganyu C1

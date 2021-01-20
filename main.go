@@ -47,6 +47,7 @@ type config struct {
 	BinSize     int64    `yaml:"BinSize"`
 	WriteCSV    bool     `yaml:"WriteCSV"`
 	DamageType  string   `yaml:"DamageType"`
+	NumWorker   int64    `yaml:"NumWorker"`
 }
 
 type profile struct {
@@ -118,14 +119,14 @@ func main() {
 	}
 	defer f.Close()
 
-	// log.Println("reading config file")
+	// fmt.Println("reading config file")
 	var cfg config
 	decoder := yaml.NewDecoder(f)
 	err = decoder.Decode(&cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
-	// log.Println(cfg)
+	// fmt.Println(cfg)
 
 	//initialize stat maps
 	t1 := make(map[statTypes]float64)
@@ -246,7 +247,7 @@ func main() {
 
 		labels[i] = prf.Label
 
-		fmt.Printf("starting simulation for profile: %v, n = %v\n", ppath, prf.NumSim)
+		fmt.Printf("starting simulation for profile: %v, n = %v\n", ppath, cfg.NumSim)
 		timeStart := time.Now()
 		hist := sim(cfg, prf)
 		elapsed := time.Since(timeStart)
@@ -340,7 +341,7 @@ func main() {
 		charts.WithXAxisOpts(opts.XAxis{
 			Name: fmt.Sprintf("Dmg: %v", cfg.DamageType),
 		}),
-		charts.WithTooltipOpts(opts.Tooltip{Show: true}),
+		// charts.WithTooltipOpts(opts.Tooltip{Show: true}),
 		charts.WithLegendOpts(opts.Legend{Show: true, Right: "0%", Orient: "vertical", Data: labels}),
 	)
 	lineChart.SetXAxis(xaxis)
@@ -360,6 +361,9 @@ func main() {
 	}
 	page.Render(io.MultiWriter(graph))
 
+	fmt.Println("Press the any key to exit...")
+	fmt.Scanln()
+
 }
 
 func sim(cfg config, p profile) []float64 {
@@ -372,48 +376,61 @@ func sim(cfg config, p profile) []float64 {
 	min = 10000000 //shouldnt ever get this big...
 	var hist []float64
 
-	wc := 0
-	wcmax := 12
-	resp := make(chan result)
+	// wc := 0
+	// wcmax := cfg.NumWorker
+	resp := make(chan result, cfg.NumSim)
 
 	// fmt.Println("n = ", count)
 	//keep sending out workers while still simulations left to do
 	fmt.Print("\tProgress: 0%")
+
+	//fire up max number of workers
+	req := make(chan bool)
+	done := make(chan bool)
+	for i := 0; i < int(cfg.NumWorker); i++ {
+		go worker(p, resp, req, done)
+	}
+
+	//use a go routine to send out a job whenever a worker is done
+	go func() {
+		var wip int64
+		for wip < n {
+			//try sending a job to req chan while wip < n
+			req <- true
+			wip++
+		}
+	}()
+
 	for count > 0 {
-		//send out worker if wc < wcmax
-		if wc < wcmax {
-			go worker(p, resp)
-			wc++
-		} else { //otherwise wait for result
-			r := <-resp
-			wc--
-			count--
+		//process results received
+		r := <-resp
+		count--
 
-			val := r.a
-			switch cfg.DamageType {
-			case "normal":
-				val = r.n
-			case "crit":
-				val = r.c
-			}
-
-			//push result to r
-			hist = append(hist, val)
-			if val < min {
-				min = val
-			}
-			if val > max {
-				max = val
-			}
-			avg += val
-			if (1 - float64(count)/float64(n)) > (progress + 0.1) {
-				progress = (1 - float64(count)/float64(n))
-				fmt.Printf("...%.0f%%", 100*progress)
-			}
+		val := r.a
+		switch cfg.DamageType {
+		case "normal":
+			val = r.n
+		case "crit":
+			val = r.c
 		}
 
+		//push result to r
+		hist = append(hist, val)
+		if val < min {
+			min = val
+		}
+		if val > max {
+			max = val
+		}
+		avg += val
+		if (1 - float64(count)/float64(n)) > (progress + 0.1) {
+			progress = (1 - float64(count)/float64(n))
+			fmt.Printf("...%.0f%%", 100*progress)
+		}
 	}
 	fmt.Print("...100%%\n")
+
+	close(done)
 
 	if writeCSV && p.Output != "" {
 
@@ -488,33 +505,46 @@ type result struct {
 	a float64
 }
 
-func worker(p profile, resp chan result) {
-	art := genArtifacts(p)
-	//bloom dmg for now
-	r := calc(art, p)
-	//add up the results
-	var total result
-	for _, v := range r {
-		total.a += v.a
-		total.c += v.c
-		total.n += v.n
+func worker(p profile, resp chan result, req chan bool, done chan bool) {
+	//create our own rand source
+	source := rand.NewSource(time.Now().UnixNano())
+	generator := rand.New(source)
+	for {
+		select {
+		case <-req:
+		case <-done:
+			return
+		}
+		art := genArtifacts(p, generator)
+		if showDebug {
+			fmt.Printf("artifacts: %v\n", art)
+		}
+		//bloom dmg for now
+		r := calc(art, p)
+		//add up the results
+		var total result
+		for _, v := range r {
+			total.a += v.a
+			total.c += v.c
+			total.n += v.n
+		}
+		resp <- total
 	}
-	resp <- total
 }
 
 //generate a set of artifacts given the configs
-func genArtifacts(p profile) artifacts {
+func genArtifacts(p profile, generator *rand.Rand) artifacts {
 	var r artifacts
 	//flower is always hp = 4780
-	r.Flower = randArtifact(stat{t: sHP, s: 4780}, p.SubstatWeights["flower"])
+	r.Flower = randArtifact(stat{t: sHP, s: 4780}, p.SubstatWeights["flower"], generator)
 	//feather is always flat atk 311
-	r.Feather = randArtifact(stat{t: sATK, s: 311}, p.SubstatWeights["feather"])
+	r.Feather = randArtifact(stat{t: sATK, s: 311}, p.SubstatWeights["feather"], generator)
 	//sands is always % atk 46.6%
-	r.Sands = randArtifact(stat{t: p.Sands, s: p.SandsStat}, p.SubstatWeights["sands"])
+	r.Sands = randArtifact(stat{t: p.Sands, s: p.SandsStat}, p.SubstatWeights["sands"], generator)
 	//goblet is always % ele 46.6%
-	r.Goblet = randArtifact(stat{t: p.Goblet, s: p.GobletStat}, p.SubstatWeights["goblet"])
+	r.Goblet = randArtifact(stat{t: p.Goblet, s: p.GobletStat}, p.SubstatWeights["goblet"], generator)
 	//circlet is always crit dmg 62.20%
-	r.Circlet = randArtifact(stat{t: p.Circlet, s: p.CircletStat}, p.SubstatWeights["circlet"])
+	r.Circlet = randArtifact(stat{t: p.Circlet, s: p.CircletStat}, p.SubstatWeights["circlet"], generator)
 	//do some sanity checks on sub stat
 	for _, v := range r.Flower.Sub {
 		max := subtier[3][v.t] * 5
@@ -565,7 +595,7 @@ func genArtifacts(p profile) artifacts {
 }
 
 //randArtifact creates a random artifact given the main stat, assume statPrb adds up to 1
-func randArtifact(main stat, prb []statPrb) artifact {
+func randArtifact(main stat, prb []statPrb, generator *rand.Rand) artifact {
 	var r artifact
 	r.Main.s = main.s
 	r.Main.t = main.t
@@ -574,7 +604,7 @@ func randArtifact(main stat, prb []statPrb) artifact {
 	var next []statPrb
 	var found bool
 	prb4stat = 207 / 932
-	p := rand.Float64()
+	p := generator.Float64()
 	var lines = 3
 	if p <= prb4stat {
 		lines = 4
@@ -596,11 +626,11 @@ func randArtifact(main stat, prb []statPrb) artifact {
 			check += v.p / nextProbSum
 		}
 		if showDebug {
-			log.Println("current probabilities: ", current)
-			log.Println("sub stat count: ", len(current))
-			log.Println("current prob total: ", check)
+			fmt.Println("current probabilities: ", current)
+			fmt.Println("sub stat count: ", len(current))
+			fmt.Println("current prob total: ", check)
 		}
-		p = rand.Float64()
+		p = generator.Float64()
 		next = []statPrb{}
 		nextProbSum = 0
 		sum = 0
@@ -611,7 +641,7 @@ func randArtifact(main stat, prb []statPrb) artifact {
 				//this is the one!
 				//roll 1 to 4 for tier
 				//ASSUMPTION = equal weight for each tier
-				tier := rand.Intn(4)
+				tier := generator.Intn(4)
 				val := subtier[tier][v.t]
 				r.Sub = append(r.Sub, stat{
 					t: v.t,
@@ -634,35 +664,18 @@ func randArtifact(main stat, prb []statPrb) artifact {
 	if lines == 4 {
 		//upgrade
 		//ASSUMPTION EQUAL CHANCE OF UPGRADING EACH STAT PROB NOT TRUE???
-		i := rand.Intn(4)
-		tier := rand.Intn(4)
+		i := generator.Intn(4)
+		tier := generator.Intn(4)
 		r.Sub[i].s += subtier[tier][r.Sub[i].t]
 
 	}
 
-	//+8
-	//ASSUMPTION EQUAL CHANCE OF UPGRADING EACH STAT PROB NOT TRUE???
-	i := rand.Intn(4)
-	tier := rand.Intn(4)
-	r.Sub[i].s += subtier[tier][r.Sub[i].t]
-
-	//+12
-	//ASSUMPTION EQUAL CHANCE OF UPGRADING EACH STAT PROB NOT TRUE???
-	i = rand.Intn(4)
-	tier = rand.Intn(4)
-	r.Sub[i].s += subtier[tier][r.Sub[i].t]
-
-	//+16
-	//ASSUMPTION EQUAL CHANCE OF UPGRADING EACH STAT PROB NOT TRUE???
-	i = rand.Intn(4)
-	tier = rand.Intn(4)
-	r.Sub[i].s += subtier[tier][r.Sub[i].t]
-
-	//+20
-	//ASSUMPTION EQUAL CHANCE OF UPGRADING EACH STAT PROB NOT TRUE???
-	i = rand.Intn(4)
-	tier = rand.Intn(4)
-	r.Sub[i].s += subtier[tier][r.Sub[i].t]
+	//do 4 more rolls, +8/+12/+16/+20
+	for i := 0; i < 4; i++ {
+		pick := generator.Intn(4)
+		tier := generator.Intn(4)
+		r.Sub[pick].s += subtier[tier][r.Sub[pick].t]
+	}
 
 	return r
 }

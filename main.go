@@ -55,10 +55,8 @@ type config struct {
 }
 
 type profile struct {
-	NumSim  int64  `yaml:"NumSim"`
-	Output  string `yaml:"Output"`
-	Label   string `yaml:"Label"`
-	SaveCSV bool   `yaml:"SaveCSV"`
+	Output string `yaml:"Output"`
+	Label  string `yaml:"Label"`
 	//character info
 	CharLevel     float64 `yaml:"CharacterLevel"`
 	CharBaseAtk   float64 `yaml:"CharacterBaseAtk"`
@@ -744,6 +742,12 @@ func calc(a artifacts, p profile) []result {
 		//cap cc at 1
 		if cc > 1 {
 			cc = 1
+		}
+		if cc < 0 {
+			cc = 0
+		}
+		if cd < 0 {
+			cd = 0
 		}
 
 		//calculate enemy resistance

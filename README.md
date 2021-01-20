@@ -1,7 +1,5 @@
 # gansim
 
-## Installation instructions:
-
 Make sure you have [go](https://golang.org/doc/install) and [git](https://git-scm.com/) installed.
 
 Then

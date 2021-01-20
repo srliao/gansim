@@ -743,6 +743,11 @@ func calc(a artifacts, p profile) []result {
 			cd += v
 		}
 
+		//cap cc at 1
+		if cc > 1 {
+			cc = 1
+		}
+
 		//calculate enemy resistance
 		for _, v := range p.ResistMod[i] {
 			//if v will bring resist to negative, the half the portion that brings it to negative

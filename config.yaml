@@ -1,18 +1,19 @@
 GraphOutput: "./graphs/out.html"
 NumWorker: 24
-NumSim: 1000000
+NumSim: 3000000
 BinSize: 100
 WriteCSV: false
 DamageType: "avg" #normal, avg, crit
 MainStatFile: "./mainstat.csv"
 SubstatTierFile: "./substattier.csv"
 Profiles:
-  - "./profiles/ganyu-talent6-amos-r1.yaml"
+  # - "./profiles/ganyu-talent6-amos-r1.yaml"
   # - "./profiles/ganyu-talent6-amos-r1-lvl16.yaml"
   - "./profiles/ganyu-talent6-prototype-r1.yaml"
+  - "./profiles/ganyu-t6-proto-r1-wt.yaml"
   # - "./profiles/ganyu-t6-proto-r1-a16.yaml"
-  - "./profiles/ganyu-talent6-prototype-r4.yaml"
-  - "./profiles/ganyu-talent6-prototype-r5.yaml"
-  - "./profiles/ganyu-talent6-prototype-r1-noproc.yaml"
-  - "./profiles/ganyu-talent6-blackcliff-r1-3-stack.yaml"
-  - "./profiles/ganyu-talent6-blackcliff-r1-0-stack.yaml"
+  # - "./profiles/ganyu-talent6-prototype-r4.yaml"
+  # - "./profiles/ganyu-talent6-prototype-r5.yaml"
+  # - "./profiles/ganyu-talent6-prototype-r1-noproc.yaml"
+  # - "./profiles/ganyu-talent6-blackcliff-r1-3-stack.yaml"
+  # - "./profiles/ganyu-talent6-blackcliff-r1-0-stack.yaml"

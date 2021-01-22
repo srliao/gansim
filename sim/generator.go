@@ -10,6 +10,7 @@ type Generator struct {
 	rand *rand.Rand
 }
 
+//NewGenerator creates a new artifact generator
 func NewGenerator(seed int64) *Generator {
 	source := rand.NewSource(time.Now().UnixNano())
 	r := rand.New(source)

@@ -1,40 +1,32 @@
 package sim
 
-//set of 5 artifacts
-type Set struct {
-}
-
-type Slot string
-
-//Types of artifact slots
-const (
-	Flower  Slot = "Flower"
-	Feather Slot = "Feather"
-	Sands   Slot = "Sands"
-	Goblet  Slot = "Goblet"
-	Circlet Slot = "Circlet"
-)
-
 type Artifact struct {
-	Stat  StatType
-	Value float64
+	Level    int64
+	Type     Slot
+	MainStat Stat
+	Substat  []Stat
 }
 
-type StatType string
+//TotalStats calculate total stats of one artifact
+func (a *Artifact) TotalStats() map[StatType]float64 {
+	r := make(map[StatType]float64)
 
-const (
-	//stat types
-	sDEFP StatType = "DEF%"
-	sDEF  StatType = "DEF"
-	sHP   StatType = "HP"
-	sHPP  StatType = "HP%"
-	sATK  StatType = "ATK"
-	sATKP StatType = "ATK%"
-	sER   StatType = "ER"
-	sEM   StatType = "EM"
-	sCC   StatType = "CR"
-	sCD   StatType = "CD"
-	sHeal StatType = "Heal"
-	sEleP StatType = "Ele%"
-	sPhyP StatType = "Phys%"
-)
+	r[a.MainStat.Type] += a.MainStat.Value
+
+	for _, v := range a.Substat {
+		r[v.Type] += v.Value
+	}
+
+	return r
+}
+
+//Validate checks if this artifact is valid
+func (a *Artifact) Validate() bool {
+
+	//no duplicated substat
+
+	//substat cannot be same as main stat
+
+	//substat amount cannot exceed max tier for the lvl
+
+}

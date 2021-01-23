@@ -1,9 +1,11 @@
 package lib
 
 import (
-	"fmt"
 	"math/rand"
 	"time"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 //Stat represents one stat
@@ -26,6 +28,8 @@ type Generator struct {
 	subProb         map[StatType][]StatProb //probility of sub stat given main stat
 	mainProb        map[StatType]float64
 	fullSubstatProb float64 //probability of getting 4 lines on an artifact
+	ShowDebug       bool
+	Log             *zap.SugaredLogger
 }
 
 //NewGenerator creates a new artifact generator
@@ -35,10 +39,11 @@ func NewGenerator(
 	subTier []map[StatType]float64,
 	mainProb map[StatType]float64,
 	subProb map[StatType][]StatProb,
-) *Generator {
+	cfg ...func(*Generator) error,
+) (*Generator, error) {
 	source := rand.NewSource(time.Now().UnixNano())
 	r := rand.New(source)
-	generator := Generator{
+	g := &Generator{
 		rand:            r,
 		mainStatLvls:    mainStatLvls,
 		subTier:         subTier,
@@ -47,17 +52,50 @@ func NewGenerator(
 		fullSubstatProb: 207.0 / 932.0,
 	}
 
-	return &generator
+	//custom configs
+	for _, f := range cfg {
+		err := f(g)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	//setup logs
+	if g.Log == nil {
+		config := zap.NewDevelopmentConfig()
+		config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+		logger, err := config.Build()
+		if err != nil {
+			return nil, err
+		}
+		sugar := logger.Sugar()
+		sugar.Debugw("logger initiated")
+
+		g.Log = sugar
+	}
+
+	return g, nil
 }
 
 //Rand generates one random artifact
-func (g *Generator) Rand(lvl int64) {
+func (g *Generator) Rand(lvl int64) Artifact {
 	// var r Artifact
-
+	p := g.rand.Float64()
+	sum := 0.0
+	var main StatType
+	for k, v := range g.mainProb {
+		sum += v
+		if p <= sum {
+			main = k
+			break
+		}
+	}
+	r := g.RandWithMain(main, lvl)
+	return r
 }
 
 //RandWithMain generates one random artifact with specified main stat
-func (g *Generator) RandWithMain(main StatType, lvl int64) {
+func (g *Generator) RandWithMain(main StatType, lvl int64) Artifact {
 
 	var r Artifact
 
@@ -65,8 +103,8 @@ func (g *Generator) RandWithMain(main StatType, lvl int64) {
 	r.MainStat.Value = g.mainStatLvls[main][lvl]
 
 	//how many substats
-	var prb4stat, sum, nextProbSum float64
-	var next []StatProb
+	var sum, nextProbSum float64
+
 	var found bool
 	p := g.rand.Float64()
 	var lines = 3
@@ -74,11 +112,10 @@ func (g *Generator) RandWithMain(main StatType, lvl int64) {
 		lines = 4
 	}
 	//roll initial substats
-	//line 1
-	//make sure prob adds to 1 first
-
+	prb := g.subProb[main]
+	var next []StatProb
 	for _, v := range prb {
-		nextProbSum += v.p
+		nextProbSum += v.Prob
 		next = append(next, v)
 	}
 
@@ -89,39 +126,38 @@ func (g *Generator) RandWithMain(main StatType, lvl int64) {
 	}
 
 	for i := 0; i < n; i++ {
-		var current []statPrb
+		var current []StatProb
 		var check float64
 		for _, v := range next {
-			current = append(current, statPrb{t: v.t, p: v.p / nextProbSum})
-			check += v.p / nextProbSum
+			current = append(current, StatProb{Type: v.Type, Prob: v.Prob / nextProbSum})
+			check += v.Prob / nextProbSum
 		}
-		if showDebug {
-			fmt.Println("current probabilities: ", current)
-			fmt.Println("sub stat count: ", len(current))
-			fmt.Println("current prob total: ", check)
+		if g.ShowDebug {
+			g.Log.Debugw("generating substat", "current prob", current, "count", len(current), "total prob", check)
 		}
-		p = generator.Float64()
-		next = []statPrb{}
+		p = g.rand.Float64()
+		//reset next
+		next = []StatProb{}
 		nextProbSum = 0
 		sum = 0
 		found = false
 		for _, v := range current {
-			sum += v.p
+			sum += v.Prob
 			if p <= sum && !found {
 				//this is the one!
 				//roll 1 to 4 for tier
 				//ASSUMPTION = equal weight for each tier
-				tier := generator.Intn(4)
-				val := cfg.SubstatTier[tier][v.t]
-				r.Sub = append(r.Sub, stat{
-					t: v.t,
-					s: val,
+				tier := g.rand.Intn(4)
+				val := g.subTier[tier][v.Type]
+				r.Substat = append(r.Substat, Stat{
+					Type:  v.Type,
+					Value: val,
 				})
 				found = true
 			} else {
 				//add this one so it's available for next roll
 				next = append(next, v)
-				nextProbSum += v.p
+				nextProbSum += v.Prob
 			}
 		}
 	}
@@ -136,9 +172,9 @@ func (g *Generator) RandWithMain(main StatType, lvl int64) {
 
 	//do more rolls, +4/+8/+12/+16/+20
 	for i := 0; i < int(up); i++ {
-		pick := generator.Intn(4)
-		tier := generator.Intn(4)
-		r.Sub[pick].s += cfg.SubstatTier[tier][r.Sub[pick].t]
+		pick := g.rand.Intn(4)
+		tier := g.rand.Intn(4)
+		r.Substat[pick].Value += g.subTier[tier][r.Substat[pick].Type]
 	}
 
 	return r

@@ -1,7 +1,8 @@
-package sim
+package lib
 
 import "log"
 
+//Artifact represents one artfact
 type Artifact struct {
 	Level    int64
 	Type     Slot
@@ -23,7 +24,7 @@ func (a *Artifact) TotalStats() map[StatType]float64 {
 }
 
 //Validate checks if this artifact is valid
-func (a *Artifact) Validate() bool {
+func (a *Artifact) Validate(subTier map[int64]map[StatType]float64) bool {
 
 	//no duplicated stats
 	dup := make(map[StatType]bool)
@@ -44,9 +45,9 @@ func (a *Artifact) Validate() bool {
 	up := a.Level / 4
 
 	for _, v := range a.Substat {
-		max := cfg.SubstatTier[3][v.t] * float64(up)
-		if v.s > max {
-			log.Panicf("invalid feather detected, substat %v exceed 5x max tier. %v\n", v.t, r)
+		max := subTier[3][v.Type] * float64(up)
+		if v.Value > max {
+			log.Panicf("invalid feather detected, substat %v exceed %vx max tier. %v\n", v.Type, up, a)
 		}
 	}
 

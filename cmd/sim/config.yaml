@@ -5,8 +5,8 @@ BinSize: 100
 WriteHist: false
 DamageType: "avg" #normal, avg, crit
 MainStatFile: "./mainstat.csv"
-SubstatTierFile: "./substattier.csv"
+SubstatTierFile: "./substat.csv"
 MainStatProbFile: "./mainprob.csv"
 SubProbFile: "./subprob.csv"
 Profiles:
-  - "./profiles/ganyu-t6-proto-r1-wt.yaml"
+  - "./profiles/test.yaml"

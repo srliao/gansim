@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"log"
 	"math/rand"
 	"time"
 
@@ -22,7 +23,7 @@ type StatProb struct {
 
 //Generator for generating random artifacts
 type Generator struct {
-	rand            *rand.Rand
+	Rand            *rand.Rand
 	MainStat        map[StatType][]float64
 	MainProb        map[Slot][]StatProb
 	SubTier         []map[StatType]float64
@@ -44,7 +45,7 @@ func NewGenerator(
 	source := rand.NewSource(time.Now().UnixNano())
 	r := rand.New(source)
 	g := &Generator{
-		rand:            r,
+		Rand:            r,
 		MainStat:        mainStat,
 		MainProb:        mainProb,
 		SubTier:         subTier,
@@ -69,7 +70,7 @@ func NewGenerator(
 			return nil, err
 		}
 		sugar := logger.Sugar()
-		sugar.Debugw("logger initiated")
+		// sugar.Debugw("logger initiated")
 
 		g.Log = sugar
 	}
@@ -77,10 +78,10 @@ func NewGenerator(
 	return g, nil
 }
 
-//Rand generates one random artifact
-func (g *Generator) Rand(slot Slot, lvl int64) Artifact {
+//RandArtifact generates one random artifact
+func (g *Generator) RandArtifact(slot Slot, lvl int64) Artifact {
 	// var r Artifact
-	p := g.rand.Float64()
+	p := g.Rand.Float64()
 	sum := 0.0
 	var main StatType
 	for _, v := range g.MainProb[slot] {
@@ -108,7 +109,7 @@ func (g *Generator) RandWithMain(slot Slot, main StatType, lvl int64) Artifact {
 	var sum, nextProbSum float64
 
 	var found bool
-	p := g.rand.Float64()
+	p := g.Rand.Float64()
 	var lines = 3
 	if p <= g.fullSubstatProb {
 		lines = 4
@@ -137,7 +138,7 @@ func (g *Generator) RandWithMain(slot Slot, main StatType, lvl int64) Artifact {
 		if g.ShowDebug {
 			g.Log.Debugw("generating substat", "current prob", current, "count", len(current), "total prob", check)
 		}
-		p = g.rand.Float64()
+		p = g.Rand.Float64()
 		//reset next
 		next = []StatProb{}
 		nextProbSum = 0
@@ -149,7 +150,7 @@ func (g *Generator) RandWithMain(slot Slot, main StatType, lvl int64) Artifact {
 				//this is the one!
 				//roll 1 to 4 for tier
 				//ASSUMPTION = equal weight for each tier
-				tier := g.rand.Intn(4)
+				tier := g.Rand.Intn(4)
 				val := g.SubTier[tier][v.Type]
 				r.Substat = append(r.Substat, Stat{
 					Type:  v.Type,
@@ -172,10 +173,15 @@ func (g *Generator) RandWithMain(slot Slot, main StatType, lvl int64) Artifact {
 		up--
 	}
 
+	if len(r.Substat) != 4 {
+		g.Log.Debugw("invalid artifact, less than 4 lines", "a", r)
+		log.Panic("invalid artifact")
+	}
+
 	//do more rolls, +4/+8/+12/+16/+20
 	for i := 0; i < int(up); i++ {
-		pick := g.rand.Intn(4)
-		tier := g.rand.Intn(4)
+		pick := g.Rand.Intn(4)
+		tier := g.Rand.Intn(4)
 		r.Substat[pick].Value += g.SubTier[tier][r.Substat[pick].Type]
 	}
 

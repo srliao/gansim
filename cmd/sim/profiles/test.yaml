@@ -1,0 +1,37 @@
+Profile:
+  CharacterLevel: 90
+  CharacterBaseAtk: 335
+  WeaponBaseAtk: 510
+  EnemyLevel: 88 #lawachurl
+  Abilities:
+    - Talent: 2.304 #lvl 10 FA
+      VaporizeOrMeltMultiplier: 1
+      AtkMod:
+        - 0.413 # prototype substat
+      EleMod:
+        - 0.15 #2pc bs
+      CCMod:
+        - 0.05 #base crit
+        - 0.2 # 4pc bs
+      CDMod:
+        - 0.5 #base cd
+        - 0.384 #ganyu ascension
+      DmgMod:
+        - 0
+      EMMod:
+        - 0
+      ReactionBonus:
+        - 0
+      ResistMod:
+        - 0.1 #lawachurl base
+        # - -0.15 #c1 after first hit
+      DefShredMod:
+        - 0
+ArtifactConfig:
+  Level: 20
+  MainStats:
+    Flower: "HP"
+    Feather: "ATK"
+    Sands: "ATK%"
+    Goblet: "Ele%"
+    Circlet: "CD"

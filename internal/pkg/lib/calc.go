@@ -7,6 +7,7 @@ import (
 
 //Profile describe a damage profile to calculate
 type Profile struct {
+	Label         string  `yaml:"String"`
 	CharLevel     float64 `yaml:"CharacterLevel"`
 	CharBaseAtk   float64 `yaml:"CharacterBaseAtk"`
 	WeaponBaseAtk float64 `yaml:"WeaponBaseAtk"`

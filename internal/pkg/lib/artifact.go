@@ -4,10 +4,10 @@ import "log"
 
 //Artifact represents one artfact
 type Artifact struct {
-	Level    int64
-	Type     Slot
-	MainStat Stat
-	Substat  []Stat
+	Level    int64  `yaml:"Level"`
+	Type     Slot   `yaml:"Type"`
+	MainStat Stat   `yaml:"MainStat"`
+	Substat  []Stat `yaml:"Substat"`
 }
 
 //TotalStats calculate total stats of one artifact

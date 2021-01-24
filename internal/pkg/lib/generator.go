@@ -10,24 +10,24 @@ import (
 
 //Stat represents one stat
 type Stat struct {
-	Type  StatType
-	Value float64
+	Type  StatType `yaml:"Type"`
+	Value float64  `yaml:"Value"`
 }
 
 //StatProb represents probability of getting a stat
 type StatProb struct {
-	Type StatType
-	Prob float64
+	Type StatType `yaml:"Type"`
+	Prob float64  `yaml:"Prob"`
 }
 
 //Generator for generating random artifacts
 type Generator struct {
 	rand            *rand.Rand
-	mainStatLvls    map[StatType][]float64
-	subTier         []map[StatType]float64
-	subProb         map[StatType][]StatProb //probility of sub stat given main stat
-	mainProb        map[StatType]float64
-	fullSubstatProb float64 //probability of getting 4 lines on an artifact
+	MainStat        map[StatType][]float64
+	MainProb        map[Slot][]StatProb
+	SubTier         []map[StatType]float64
+	SubProb         map[StatType][]StatProb //probility of sub stat given main stat
+	fullSubstatProb float64                 //probability of getting 4 lines on an artifact
 	ShowDebug       bool
 	Log             *zap.SugaredLogger
 }
@@ -35,9 +35,9 @@ type Generator struct {
 //NewGenerator creates a new artifact generator
 func NewGenerator(
 	seed int64,
-	mainStatLvls map[StatType][]float64,
+	mainStat map[StatType][]float64,
+	mainProb map[Slot][]StatProb,
 	subTier []map[StatType]float64,
-	mainProb map[StatType]float64,
 	subProb map[StatType][]StatProb,
 	cfg ...func(*Generator) error,
 ) (*Generator, error) {
@@ -45,10 +45,10 @@ func NewGenerator(
 	r := rand.New(source)
 	g := &Generator{
 		rand:            r,
-		mainStatLvls:    mainStatLvls,
-		subTier:         subTier,
-		mainProb:        mainProb,
-		subProb:         subProb,
+		MainStat:        mainStat,
+		MainProb:        mainProb,
+		SubTier:         subTier,
+		SubProb:         subProb,
 		fullSubstatProb: 207.0 / 932.0,
 	}
 
@@ -78,29 +78,31 @@ func NewGenerator(
 }
 
 //Rand generates one random artifact
-func (g *Generator) Rand(lvl int64) Artifact {
+func (g *Generator) Rand(slot Slot, lvl int64) Artifact {
 	// var r Artifact
 	p := g.rand.Float64()
 	sum := 0.0
 	var main StatType
-	for k, v := range g.mainProb {
-		sum += v
+	for _, v := range g.MainProb[slot] {
+		sum += v.Prob
 		if p <= sum {
-			main = k
+			main = v.Type
 			break
 		}
 	}
-	r := g.RandWithMain(main, lvl)
+	r := g.RandWithMain(slot, main, lvl)
 	return r
 }
 
 //RandWithMain generates one random artifact with specified main stat
-func (g *Generator) RandWithMain(main StatType, lvl int64) Artifact {
+func (g *Generator) RandWithMain(slot Slot, main StatType, lvl int64) Artifact {
 
 	var r Artifact
 
+	r.Type = slot
+
 	r.MainStat.Type = main
-	r.MainStat.Value = g.mainStatLvls[main][lvl]
+	r.MainStat.Value = g.MainStat[main][lvl]
 
 	//how many substats
 	var sum, nextProbSum float64
@@ -112,7 +114,7 @@ func (g *Generator) RandWithMain(main StatType, lvl int64) Artifact {
 		lines = 4
 	}
 	//roll initial substats
-	prb := g.subProb[main]
+	prb := g.SubProb[main]
 	var next []StatProb
 	for _, v := range prb {
 		nextProbSum += v.Prob
@@ -148,7 +150,7 @@ func (g *Generator) RandWithMain(main StatType, lvl int64) Artifact {
 				//roll 1 to 4 for tier
 				//ASSUMPTION = equal weight for each tier
 				tier := g.rand.Intn(4)
-				val := g.subTier[tier][v.Type]
+				val := g.SubTier[tier][v.Type]
 				r.Substat = append(r.Substat, Stat{
 					Type:  v.Type,
 					Value: val,
@@ -174,7 +176,7 @@ func (g *Generator) RandWithMain(main StatType, lvl int64) Artifact {
 	for i := 0; i < int(up); i++ {
 		pick := g.rand.Intn(4)
 		tier := g.rand.Intn(4)
-		r.Substat[pick].Value += g.subTier[tier][r.Substat[pick].Type]
+		r.Substat[pick].Value += g.SubTier[tier][r.Substat[pick].Type]
 	}
 
 	return r

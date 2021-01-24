@@ -20,3 +20,5 @@ Backup of *.doc*
 *.~vsd*
 
 *.html
+
+.DS_Store

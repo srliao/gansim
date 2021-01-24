@@ -25,7 +25,7 @@ const (
 	ATKP StatType = "ATK%"
 	ER   StatType = "ER"
 	EM   StatType = "EM"
-	CC   StatType = "CR"
+	CR   StatType = "CR"
 	CD   StatType = "CD"
 	Heal StatType = "Heal"
 	EleP StatType = "Ele%"

@@ -2,7 +2,7 @@ package lib
 
 //Set of 5 artifacts
 type Set struct {
-	Artifacts map[Slot]Artifact
+	Artifacts map[Slot]Artifact `yaml:"Artifacts"`
 }
 
 //TotalStats calculate total stats of a set of artifacts

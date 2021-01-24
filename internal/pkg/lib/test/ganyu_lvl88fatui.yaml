@@ -1,0 +1,105 @@
+Profile:
+  CharacterLevel: 90
+  CharacterBaseAtk: 335
+  WeaponBaseAtk: 510
+  EnemyLevel: 88 #lawachurl
+  Abilities:
+    - Talent: 2.304 #lvl 10 FA
+      VaporizeOrMeltMultiplier: 1
+      AtkMod:
+        - 0.413 # prototype substat
+      EleMod:
+        - 0.15 #2pc bs
+      CCMod:
+        - 0.05 #base crit
+        - 0.2 # 4pc bs
+      CDMod:
+        - 0.5 #base cd
+        - 0.384 #ganyu ascension
+      DmgMod:
+        - 0
+      EMMod:
+        - 0
+      ReactionBonus:
+        - 0
+      ResistMod:
+        - 0.1 #lawachurl base
+        # - -0.15 #c1 after first hit
+      DefShredMod:
+        - 0
+Artifacts:
+  Flower:
+    Level: 20
+    Type: "Flower"
+    MainStat:
+      Type: "HP"
+      Value: 4780
+    Substat:
+      - Type: "EM"
+        Value: 21
+      - Type: "ATK"
+        Value: 47
+      - Type: "CD"
+        Value: 0.179
+      - Type: "DEF"
+        Value: 19
+  Feather:
+    Level: 20
+    Type: "Feather"
+    MainStat:
+      Type: "ATK"
+      Value: 311
+    Substat:
+      - Type: "EM"
+        Value: 42
+      - Type: "CR"
+        Value: 0.089
+      - Type: "DEF"
+        Value: 37
+      - Type: "ATK%"
+        Value: 0.053
+  Sands:
+    Level: 20
+    Type: "Sands"
+    MainStat:
+      Type: "ATK%"
+      Value: 0.466
+    Substat:
+      - Type: "ATK"
+        Value: 31
+      - Type: "CD"
+        Value: 0.225
+      - Type: "HP%"
+        Value: 0.047
+      - Type: "ER"
+        Value: 0.168
+  Goblet:
+    Level: 20
+    Type: "Goblet"
+    MainStat:
+      Type: "Ele%"
+      Value: 0.466
+    Substat:
+      - Type: "ATK%"
+        Value: 0.047
+      - Type: "DEF%"
+        Value: 0.109
+      - Type: "HP%"
+        Value: 0.105
+      - Type: "CR"
+        Value: 0.097
+  Circlet:
+    Level: 20
+    Type: "Circlet"
+    MainStat:
+      Type: "CD"
+      Value: 0.622
+    Substat:
+      - Type: "CR"
+        Value: 0.097
+      - Type: "DEF"
+        Value: 21
+      - Type: "ATK%"
+        Value: 0.14
+      - Type: "DEF%"
+        Value: 0.066

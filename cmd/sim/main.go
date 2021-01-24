@@ -122,6 +122,31 @@ func loadMainProb(path string) (map[lib.Slot][]lib.StatProb, error) {
 
 	//read header
 
+	if len(lines) < 1 {
+		return nil, fmt.Errorf("unexpected short file")
+	}
+
+	if len(lines[0]) < 6 {
+		return nil, fmt.Errorf("unexpected short header line")
+	}
+
+	var header []lib.Slot
+
+	for i := 1; i < len(lines[0]); i++ {
+		result[lib.Slot(lines[0][i])] = make([]lib.StatProb, 5)
+		header = append(header, lib.Slot(lines[0][i]))
+	}
+
+	for i := 1; i < len(lines); i++ {
+		if len(lines[i]) != 6 {
+			return nil, fmt.Errorf("line %v does not have 6 fields, got %v", i, len(lines[i]))
+		}
+		for j := 1; j < len(lines[i]); j++ {
+			result[header[j-1])][j-1] = lines[i][j]
+
+		}
+	}
+
 	return nil, nil
 }
 
@@ -168,3 +193,22 @@ func loadSubTier(path string) ([]map[lib.StatType]float64, error) {
 	}
 	return result, nil
 }
+
+/**
+
+- roll random slot; total++
+  - roll 50/50 if on set
+    - if not on set && is not goblet, discard
+	- if not on set && is goblet
+	  - roll random main stat; if main stat = 1/5 * ele %, keep; else discard
+	- if on set
+	  - if not feather/flower, roll random main stat
+		- if main stat is atk%, 1/5 * ele %, crit chance, or crit dmg => keep
+		- else discard
+  - roll substat if kept
+	- if # of cc/cd/atk%/atk < 2, discard
+	- else upgrade to +20
+  - calc dmg with kept artifact, if > current, keep new, discard old
+  - if dmg > threshold, stop
+
+  **/

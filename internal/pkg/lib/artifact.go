@@ -1,6 +1,45 @@
 package lib
 
-import "log"
+import (
+	"fmt"
+	"log"
+	"sort"
+	"strings"
+)
+
+type Set map[Slot]Artifact
+
+func (s Set) pretty() string {
+	var sb strings.Builder
+
+	keys := make([]string, 0, len(s))
+	for k := range s {
+		keys = append(keys, string(k))
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		sb.WriteString(fmt.Sprintf("%v [%v]; ", k, s[Slot(k)].pretty()))
+	}
+
+	return sb.String()
+}
+
+func prettySet(s map[Slot]Artifact) string {
+	var sb strings.Builder
+
+	keys := make([]string, 0, len(s))
+	for k := range s {
+		keys = append(keys, string(k))
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		sb.WriteString(fmt.Sprintf("%v [%v]; ", k, s[Slot(k)].pretty()))
+	}
+
+	return sb.String()
+}
 
 //Artifact represents one artfact
 type Artifact struct {
@@ -21,6 +60,17 @@ func (a *Artifact) TotalStats() map[StatType]float64 {
 	}
 
 	return r
+}
+
+func (a Artifact) pretty() string {
+	var sb strings.Builder
+
+	sb.WriteString(fmt.Sprintf("m:%v ", a.MainStat.Type))
+	for _, v := range a.Substat {
+		sb.WriteString(fmt.Sprintf(" %v:%.4f", v.Type, v.Value))
+	}
+
+	return sb.String()
 }
 
 //Validate checks if this artifact is valid

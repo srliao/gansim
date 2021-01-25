@@ -9,7 +9,6 @@ import (
 	"math"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/components"
@@ -22,10 +21,11 @@ type config struct {
 	Profiles     []string `yaml:"Profiles"`
 	GraphOutput  string   `yaml:"GraphOutput"`
 	NumSim       int64    `yaml:"NumSim"`
-	BinSize      int64    `yaml:"BinSize"`
+	DmgBinSize   int64    `yaml:"DmgBinSize"`
+	FarmBinSize  int64    `yaml:"FarmBinSize"`
 	WriteHist    bool     `yaml:"WriteHist"`
-	DamageType   string   `yaml:"DamageType"`
 	NumWorker    int64    `yaml:"NumWorker"`
+	Percentile   float64  `yaml:"Percentile"`
 	MainStatFile string   `yaml:"MainStatFile"`
 	SubTierFile  string   `yaml:"SubstatTierFile"`
 	MainProbFile string   `yaml:"MainStatProbFile"`
@@ -58,217 +58,180 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = sim(cfg)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-}
-
-func sim(cfg config) error {
-	//load each profile
-
-	var src []byte
-	var err error
-	var p simProfile
+	log.Println(cfg)
 
 	ms, err := loadMainStat(cfg.MainStatFile)
 	if err != nil {
-		return err
+		log.Fatal(err)
 	}
 	fmt.Println("main stat scaling loaded ok")
 	// fmt.Println(ms)
 	mp, err := loadMainProb(cfg.MainProbFile)
 	if err != nil {
-		return err
+		log.Fatal(err)
 	}
 	fmt.Println("main stat prob loaded ok")
 	// fmt.Println(mp)
 	st, err := loadSubTier(cfg.SubTierFile)
 	if err != nil {
-		return err
+		log.Fatal(err)
 	}
 	fmt.Println("sub tiers loaded ok")
 	// fmt.Println(st)
 	sp, err := loadSubProb(cfg.SubProbFile)
 	if err != nil {
-		return err
+		log.Fatal(err)
 	}
 	fmt.Println("substat prob loaded ok")
 	// fmt.Println(sp)
 
-	histData := make([][]float64, len(cfg.Profiles))
 	labels := make([]string, len(cfg.Profiles))
+	page := components.NewPage()
+	page.PageTitle = "simulation results"
 
-	for i, pp := range cfg.Profiles {
-		src, err = ioutil.ReadFile(pp)
+	histData := make([][]float64, len(cfg.Profiles))
+	histStart := make([]int64, len(cfg.Profiles))
+	min := make([]float64, len(cfg.Profiles))
+	max := make([]float64, len(cfg.Profiles))
+	mean := make([]float64, len(cfg.Profiles))
+	sd := make([]float64, len(cfg.Profiles))
+
+	//farm charts
+	var fcharts []*charts.Line
+
+	//absolute max/min
+	var binMin int64
+	var binMax int64
+	binMin = math.MaxInt64
+	binMin = -1
+
+	//load each profile
+	var p lib.Profile
+
+	for i, prf := range cfg.Profiles {
+		src, err = ioutil.ReadFile(prf)
 		if err != nil {
 			fmt.Println("error reading file")
-			return err
+			log.Fatal(err)
 		}
 		err = yaml.Unmarshal(src, &p)
 		if err != nil {
-			return err
+			log.Fatal(err)
 		}
 
-		if _, ok := p.ArtifactConfig.MainStats[lib.Sands]; !ok {
-			return fmt.Errorf("invalid profile: no stats specified for sands")
+		if _, ok := p.Artifacts.TargetMainStat[lib.Sands]; !ok {
+			log.Fatal("invalid profile: no stats specified for sands")
 		}
-		if _, ok := p.ArtifactConfig.MainStats[lib.Goblet]; !ok {
-			return fmt.Errorf("invalid profile: no stats specified for goblet")
+		if _, ok := p.Artifacts.TargetMainStat[lib.Goblet]; !ok {
+			log.Fatal("invalid profile: no stats specified for goblet")
 		}
-		if _, ok := p.ArtifactConfig.MainStats[lib.Circlet]; !ok {
-			return fmt.Errorf("invalid profile: no stats specified for circlet")
-		}
-
-		labels[i] = fmt.Sprintf("%v [lvl %v]", p.Profile.Label, p.ArtifactConfig.Level)
-
-		//calculate the damage distribution
-		resp := make(chan lib.DmgResult, cfg.NumSim)
-
-		var hist []float64
-
-		fmt.Printf("starting simulation for profile: %v, n = %v\n", pp, cfg.NumSim)
-		timeStart := time.Now()
-
-		//fire up max number of workers
-		req := make(chan bool)
-		done := make(chan bool)
-		for w := 0; w < int(cfg.NumWorker); w++ {
-			g, err := lib.NewGenerator(
-				time.Now().UnixNano()+int64(w),
-				ms,
-				mp,
-				st,
-				sp,
-			)
-			if err != nil {
-				return err
-			}
-			go workerD(g, p, resp, req, done)
+		if _, ok := p.Artifacts.TargetMainStat[lib.Circlet]; !ok {
+			log.Fatal("invalid profile: no stats specified for circlet")
 		}
 
-		//use a go routine to send out a job whenever a worker is done
-		go func() {
-			var wip int64
-			for wip < cfg.NumSim {
-				//try sending a job to req chan while wip < cfg.NumSim
-				req <- true
-				wip++
-			}
-		}()
+		labels[i] = fmt.Sprintf("%v", p.Label)
 
-		count := cfg.NumSim
-		var progress float64
-		fmt.Print("\tProgress: 0%")
-		for count > 0 {
-			//process results received
-			r := <-resp
-			count--
-
-			val := r.Avg
-			switch cfg.DamageType {
-			case "normal":
-				val = r.Normal
-			case "crit":
-				val = r.Crit
-			}
-
-			//push result to r
-			hist = append(hist, val)
-
-			if (1 - float64(count)/float64(cfg.NumSim)) > (progress + 0.1) {
-				progress = (1 - float64(count)/float64(cfg.NumSim))
-				fmt.Printf("...%.0f%%", 100*progress)
-			}
+		s, err := lib.NewSimulator(
+			ms,
+			mp,
+			st,
+			sp,
+		)
+		if err != nil {
+			log.Fatal(err)
 		}
-		fmt.Print("...100%%\n")
 
-		close(done)
+		ds, dhist, dmin, dmax, dmean, dsd := s.SimDmgDist(cfg.NumSim, cfg.DmgBinSize, cfg.NumWorker, p)
 
-		elapsed := time.Since(timeStart)
-		fmt.Printf("Simulation for profile %v took %s\n\n", pp, elapsed)
+		histData[i] = dhist
+		histStart[i] = ds
+		min[i] = dmin
+		max[i] = dmax
+		mean[i] = dmean
+		sd[i] = dsd
 
-		histData[i] = hist
+		if ds < binMin {
+			binMin = ds
+		}
+		m := ds + int64(len(dhist)+1)*cfg.DmgBinSize
+		if m > binMax {
+			binMax = m
+		}
 
 		//figure out damage required to hit required percentile
+		var total, cumul, d float64
+
+		for _, v := range dhist {
+			total += v
+		}
+
+		for i, v := range dhist {
+			cumul += v
+			if cumul/total >= cfg.Percentile {
+				d = float64(i)
+			}
+		}
+
+		d = float64(ds) + d*float64(cfg.DmgBinSize)
 
 		//sim distribution to reach said dmg
+		fstart, fhist, fmin, fmax, fmean, fsd := s.SimArtifactFarm(cfg.NumSim, cfg.FarmBinSize, cfg.NumWorker, d, p)
+
+		var fx []int64
+		var fitems []opts.LineData
+
+		for i, v := range fhist {
+			fx = append(fx, fstart+cfg.FarmBinSize*int64(i))
+			fitems = append(fitems, opts.LineData{Value: v})
+		}
+
+		//one chart for every one of these sims
+		lineChart := charts.NewLine()
+		lineChart.SetGlobalOptions(
+			charts.WithTitleOpts(opts.Title{
+				Title: fmt.Sprintf("Histogram (n = %v, %.2f percentile)", cfg.NumSim, cfg.Percentile),
+			}),
+			charts.WithYAxisOpts(opts.YAxis{
+				Name: "Freq",
+			}),
+			charts.WithXAxisOpts(opts.XAxis{
+				Name: "# of Artifacts",
+			}),
+			// charts.WithTooltipOpts(opts.Tooltip{Show: true}),
+			charts.WithLegendOpts(opts.Legend{Show: true, Right: "0%", Orient: "vertical", Data: labels}),
+		)
+		lineChart.AddSeries(labels[i], fitems)
+		lineChart.SetXAxis(fx)
+		fcharts = append(fcharts, lineChart)
+
+		fmt.Printf("min: %v, max %v, mean: %.2f, sd: %.2f\n", fmin, fmax, fmean, fsd)
 	}
 
-	//sim results page
-	items := make([][]opts.LineData, len(cfg.Profiles))
-	min := make([]float64, len(cfg.Profiles))
-	max := make([]float64, len(cfg.Profiles))
-	avg := make([]float64, len(cfg.Profiles))
-	ss := make([]float64, len(cfg.Profiles))
-	bins := make([][]float64, len(cfg.Profiles))
-
-	//absolute max/min
-	var binMax, binMin float64
-	binMax = -100000000
-	binMin = 100000000
-
-	for i := range min {
-		min[i] = 1000000000
-		max[i] = -1000000000
-	}
-
-	//find the min/max/avg/std
-	for i, hist := range histData {
-		for _, v := range hist {
-			if v < min[i] {
-				min[i] = v
-			}
-			if v > max[i] {
-				max[i] = v
-			}
-			avg[i] += v
-		}
-		avg[i] = avg[i] / float64(len(hist))
-		if binMin > min[i] {
-			binMin = min[i]
-		}
-		if binMax < max[i] {
-			binMax = max[i]
-		}
-	}
-	//calculate bin size
-	binMin = float64(int64(binMin/float64(cfg.BinSize)) * cfg.BinSize)
-	binMax = float64((int64(binMax/float64(cfg.BinSize)) + 1.0) * cfg.BinSize)
-
-	// fmt.Printf("bin min: %v, bin max: %v\n", binMin, binMax)
-
-	numBin := int64((binMax-binMin)/float64(cfg.BinSize)) + 1
+	numBin := (binMax - binMin) / cfg.DmgBinSize
 	xaxis := make([]float64, numBin)
 
-	//bin the data
+	for i := range xaxis {
+		xaxis[i] = float64(int64(i)*cfg.DmgBinSize + binMin)
+	}
+
+	bins := make([][]float64, len(cfg.Profiles))
+	items := make([][]opts.LineData, len(cfg.Profiles))
+
 	for i, hist := range histData {
 		bins[i] = make([]float64, numBin)
-		for _, v := range hist {
-			ss[i] += (v - avg[i]) * (v - avg[i])
-			//find the steps and bin this
-			steps := int64((v - float64(binMin)) / float64(cfg.BinSize))
-			bins[i][steps]++
+		offset := (histStart[i] - binMin) / cfg.DmgBinSize
+		for j, v := range hist {
+			bins[i][int(offset)+j] += v
 		}
+		labels[i] = fmt.Sprintf("%v (min: %.f max: %.f avg: %.f sd: %.f)", labels[i], min[i], max[i], mean[i], sd[i])
 	}
 
 	for i, b := range bins {
-		for j, v := range b {
+		for _, v := range b {
 			items[i] = append(items[i], opts.LineData{Value: v / float64(cfg.NumSim)})
-			xaxis[j] = binMin + float64(j)*float64(cfg.BinSize) + float64(cfg.BinSize/2)
 		}
 	}
 
-	//add min, max, avg, stddev to label
-	for i, v := range labels {
-		sd := math.Sqrt(ss[i] / float64(cfg.NumSim))
-		labels[i] = fmt.Sprintf("%v (min: %.f max: %.f avg: %.f sd: %.f)", v, min[i], max[i], avg[i], sd)
-	}
-
-	page := components.NewPage()
-	page.PageTitle = "simulation results"
 	lineChart := charts.NewLine()
 	lineChart.SetGlobalOptions(
 		charts.WithTitleOpts(opts.Title{
@@ -278,58 +241,33 @@ func sim(cfg config) error {
 			Name: "Probability",
 		}),
 		charts.WithXAxisOpts(opts.XAxis{
-			Name: fmt.Sprintf("Dmg: %v", cfg.DamageType),
+			Name: "Dmg",
 		}),
 		// charts.WithTooltipOpts(opts.Tooltip{Show: true}),
 		charts.WithLegendOpts(opts.Legend{Show: true, Right: "0%", Orient: "vertical", Data: labels}),
 	)
 	lineChart.SetXAxis(xaxis)
 
-	//add items to our chart
 	for i, series := range items {
 		lineChart.AddSeries(labels[i], series)
 	}
 
-	//add all hist data into the charts
 	page.AddCharts(
 		lineChart,
 	)
+
+	for _, v := range fcharts {
+		page.AddCharts(
+			v,
+		)
+	}
+
 	graph, err := os.Create(cfg.GraphOutput)
 	if err != nil {
 		panic(err)
 	}
 	page.Render(io.MultiWriter(graph))
 
-	return nil
-}
-
-func workerD(g *lib.Generator, p simProfile, resp chan lib.DmgResult, req chan bool, done chan bool) {
-	for {
-		select {
-		case <-req:
-		case <-done:
-			return
-		}
-		//generate a set of artifacts
-		set := make(map[lib.Slot]lib.Artifact)
-		set[lib.Flower] = g.RandWithMain(lib.Flower, lib.HP, p.ArtifactConfig.Level)
-		set[lib.Feather] = g.RandWithMain(lib.Feather, lib.ATK, p.ArtifactConfig.Level)
-		set[lib.Sands] = g.RandWithMain(lib.Sands, p.ArtifactConfig.MainStats[lib.Sands], p.ArtifactConfig.Level)
-		set[lib.Goblet] = g.RandWithMain(lib.Goblet, p.ArtifactConfig.MainStats[lib.Goblet], p.ArtifactConfig.Level)
-		set[lib.Circlet] = g.RandWithMain(lib.Circlet, p.ArtifactConfig.MainStats[lib.Circlet], p.ArtifactConfig.Level)
-
-		//calculate dmg
-		r := lib.Calc(p.Profile, set, false)
-
-		var out lib.DmgResult
-		for _, v := range r {
-			out.Normal += v.Normal
-			out.Avg += v.Avg
-			out.Crit += v.Crit
-		}
-
-		resp <- out
-	}
 }
 
 func loadMainStat(path string) (map[lib.StatType][]float64, error) {
@@ -471,7 +409,7 @@ func loadSubTier(path string) ([]map[lib.StatType]float64, error) {
 	return result, nil
 }
 
-func loadSubProb(path string) (map[lib.StatType][]lib.StatProb, error) {
+func loadSubProb(path string) (map[lib.Slot]map[lib.StatType][]lib.StatProb, error) {
 	//load substat weights
 	f, err := os.Open(path)
 	if err != nil {
@@ -484,7 +422,7 @@ func loadSubProb(path string) (map[lib.StatType][]lib.StatProb, error) {
 	if err != nil {
 		return nil, err
 	}
-	result := make(map[lib.StatType][]lib.StatProb)
+	result := make(map[lib.Slot]map[lib.StatType][]lib.StatProb)
 
 	//read header
 
@@ -492,32 +430,44 @@ func loadSubProb(path string) (map[lib.StatType][]lib.StatProb, error) {
 		return nil, fmt.Errorf("unexpected short file")
 	}
 
-	if len(lines[0]) < 11 {
+	if len(lines[0]) < 12 {
 		return nil, fmt.Errorf("unexpected short header line")
 	}
 
 	var header []lib.StatType
 
-	for i := 1; i < len(lines[0]); i++ {
-		result[lib.StatType(lines[0][i])] = make([]lib.StatProb, 0)
+	for i := 2; i < len(lines[0]); i++ {
 		header = append(header, lib.StatType(lines[0][i]))
 	}
 
 	// fmt.Println(header)
 
 	for i := 1; i < len(lines); i++ {
-		if len(lines[i]) != 11 {
-			return nil, fmt.Errorf("line %v does not have 11 fields, got %v", i, len(lines[i]))
+		l := lines[i]
+
+		if len(l) != 12 {
+			return nil, fmt.Errorf("line %v does not have 12 fields, got %v", i, len(lines[i]))
 		}
-		for j := 1; j < len(lines[i]); j++ {
-			prb, err := strconv.ParseFloat(lines[i][j], 64)
+
+		slot := lib.Slot(l[0])
+		main := lib.StatType(l[1])
+
+		if _, ok := result[slot]; !ok {
+			result[slot] = make(map[lib.StatType][]lib.StatProb)
+		}
+		if _, ok := result[slot][main]; !ok {
+			result[slot][main] = make([]lib.StatProb, 0)
+		}
+
+		for j := 2; j < len(lines[i]); j++ {
+			prb, err := strconv.ParseFloat(l[j], 64)
 			if err != nil {
 				return nil, fmt.Errorf("err parsing float @ line %v, value %v: %v", i, lines[i][j], err)
 			}
-			result[header[j-1]] = append(
-				result[header[j-1]],
+			result[slot][main] = append(
+				result[slot][main],
 				lib.StatProb{
-					Type: lib.StatType(lines[i][0]),
+					Type: header[j-2],
 					Prob: prb,
 				},
 			)

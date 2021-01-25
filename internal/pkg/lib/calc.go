@@ -7,11 +7,17 @@ import (
 
 //Profile describe a damage profile to calculate
 type Profile struct {
-	Label         string  `yaml:"String"`
+	Label         string  `yaml:"Label"`
 	CharLevel     float64 `yaml:"CharacterLevel"`
 	CharBaseAtk   float64 `yaml:"CharacterBaseAtk"`
 	WeaponBaseAtk float64 `yaml:"WeaponBaseAtk"`
 	EnemyLevel    float64 `yaml:"EnemyLevel"`
+	//artifact details
+	Artifacts struct {
+		Level          int64             `default:"20" yaml:"Level"`
+		Current        map[Slot]Artifact `yaml:"Current"`
+		TargetMainStat map[Slot]StatType `yaml:"TargetMainStat"`
+	} `yaml:"Artifacts"`
 	//abilities
 	Abilities []struct {
 		Talent            float64   `default:"1.0" yaml:"Talent"`

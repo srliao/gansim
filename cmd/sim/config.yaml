@@ -1,9 +1,10 @@
 GraphOutput: "./graphs/out.html"
-NumWorker: 24
-NumSim: 3000000
-BinSize: 100
+NumWorker: 1
+NumSim: 10
+DmgBinSize: 100
+FarmBinSize: 10
 WriteHist: false
-DamageType: "avg" #normal, avg, crit
+Percentile: 0.9
 MainStatFile: "./mainstat.csv"
 SubstatTierFile: "./substat.csv"
 MainStatProbFile: "./mainprob.csv"

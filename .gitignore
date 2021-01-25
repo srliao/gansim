@@ -22,3 +22,5 @@ Backup of *.doc*
 *.html
 
 .DS_Store
+
+*.log

@@ -19,6 +19,7 @@ type Simulator struct {
 	SubProb     map[Slot]map[StatType][]StatProb //probility of sub stat given main stat
 	FullSubProb float64                          //probability of getting 4 lines on an artifact
 	Log         *zap.SugaredLogger
+	showDebug   bool
 }
 
 //NewSimulator creates a new sim
@@ -37,6 +38,7 @@ func NewSimulator(
 		SubTier:     subTier,
 		SubProb:     subProb,
 		FullSubProb: 207.0 / 932.0,
+		showDebug:   showDebug,
 	}
 
 	//custom configs
@@ -53,7 +55,7 @@ func NewSimulator(
 		config := zap.NewDevelopmentConfig()
 		config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 		if !showDebug {
-			config.Level = zapcore.InfoLevel
+			config.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
 		}
 
 		logger, err := config.Build()
@@ -125,7 +127,9 @@ func (s *Simulator) SimDmgDist(n, b, w int64, p Profile) (start int64, hist []fl
 		}
 	}()
 
-	fmt.Print("\tProgress: 0%")
+	if !s.showDebug {
+		fmt.Print("\tProgress: 0%")
+	}
 	for count > 0 {
 		//process results received
 		r := <-resp
@@ -144,10 +148,14 @@ func (s *Simulator) SimDmgDist(n, b, w int64, p Profile) (start int64, hist []fl
 
 		if (1 - float64(count)/float64(n)) > (progress + 0.1) {
 			progress = (1 - float64(count)/float64(n))
-			fmt.Printf("...%.0f%%", 100*progress)
+			if !s.showDebug {
+				fmt.Printf("...%.0f%%", 100*progress)
+			}
 		}
 	}
-	fmt.Print("...100%%\n")
+	if !s.showDebug {
+		fmt.Print("...100%\n")
+	}
 
 	close(done)
 
@@ -199,7 +207,9 @@ func (s *Simulator) SimArtifactFarm(n, b, w int64, d float64, p Profile) (start 
 		}
 	}()
 
-	fmt.Print("\tProgress: 0%\n")
+	if !s.showDebug {
+		fmt.Print("\tProgress: 0%")
+	}
 	for count > 0 {
 		//process results received
 		r := <-resp
@@ -217,10 +227,14 @@ func (s *Simulator) SimArtifactFarm(n, b, w int64, d float64, p Profile) (start 
 
 		if (1 - float64(count)/float64(n)) > (progress + 0.1) {
 			progress = (1 - float64(count)/float64(n))
-			fmt.Printf("...%.0f%%\n", 100*progress)
+			if !s.showDebug {
+				fmt.Printf("...%.0f%%", 100*progress)
+			}
 		}
 	}
-	fmt.Print("...100%%\n")
+	if !s.showDebug {
+		fmt.Print("...100%\n")
+	}
 
 	close(done)
 
@@ -308,7 +322,10 @@ func (s *Simulator) workerA(p Profile, d float64, resp chan int64, req chan bool
 			//roll random slot
 		NEXTTRY:
 			for max < d {
-				fmt.Println("------------------------")
+				if s.showDebug {
+					fmt.Println("------------------------")
+				}
+
 				count++
 				//panic
 				if count > 100000000 {
@@ -416,13 +433,9 @@ func (s *Simulator) workerA(p Profile, d float64, resp chan int64, req chan bool
 					continue NEXTTRY
 				}
 
-				var cd, dd float64
+				var dd float64
 				var temp []DmgResult
 				//calculate damage full set or not (it'll just be really low with 1 item)
-				temp = Calc(p, bag, false)
-				for _, v := range temp {
-					cd += v.Avg
-				}
 
 				nextSet := make(map[Slot]Artifact)
 				for k, v := range bag {
@@ -435,10 +448,13 @@ func (s *Simulator) workerA(p Profile, d float64, resp chan int64, req chan bool
 					dd += v.Avg
 				}
 
-				s.Log.Debugw("rand art", "worker", seed, "bag", prettySet(bag), "cd", cd)
-				s.Log.Debugw("rand art", "worker", seed, "next set", prettySet(nextSet), "dmg", dd)
+				s.Log.Debugw("rand art", "worker", seed, "max", max, "next dmg", dd)
+				s.Log.Debugw("rand art", "worker", seed, "current", bag[next.Type].pretty())
+				s.Log.Debugw("rand art", "worker", seed, "next", next.pretty())
+				s.Log.Debugw("rand art", "worker", seed, "bag", prettySet(bag))
+				s.Log.Debugw("rand art", "worker", seed, "next set", prettySet(nextSet))
 
-				if dd > cd {
+				if dd > max {
 					max = dd
 					bag[next.Type] = next
 				}

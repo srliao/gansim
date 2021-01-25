@@ -20,7 +20,8 @@ import (
 type config struct {
 	Profiles     []string `yaml:"Profiles"`
 	GraphOutput  string   `yaml:"GraphOutput"`
-	NumSim       int64    `yaml:"NumSim"`
+	NumSimDmg    int64    `yaml:"NumSimDmg"`
+	NumSimFarm   int64    `yaml:"NumSimFarm"`
 	DmgBinSize   int64    `yaml:"DmgBinSize"`
 	FarmBinSize  int64    `yaml:"FarmBinSize"`
 	WriteHist    bool     `yaml:"WriteHist"`
@@ -104,7 +105,7 @@ func main() {
 	var binMin int64
 	var binMax int64
 	binMin = math.MaxInt64
-	binMin = -1
+	binMax = -1
 
 	//load each profile
 	var p lib.Profile
@@ -130,8 +131,6 @@ func main() {
 			log.Fatal("invalid profile: no stats specified for circlet")
 		}
 
-		labels[i] = fmt.Sprintf("%v", p.Label)
-
 		s, err := lib.NewSimulator(
 			ms,
 			mp,
@@ -143,7 +142,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		ds, dhist, dmin, dmax, dmean, dsd := s.SimDmgDist(cfg.NumSim, cfg.DmgBinSize, cfg.NumWorker, p)
+		ds, dhist, dmin, dmax, dmean, dsd := s.SimDmgDist(cfg.NumSimDmg, cfg.DmgBinSize, cfg.NumWorker, p)
 
 		histData[i] = dhist
 		histStart[i] = ds
@@ -160,38 +159,59 @@ func main() {
 			binMax = m
 		}
 
-		//figure out damage required to hit required percentile
-		var total, cumul, d float64
+		fmt.Printf("damage sim n: %v,min: %v, max %v, mean: %.2f, sd: %.2f\n", cfg.NumSimDmg, dmin, dmax, dmean, dsd)
 
-		for _, v := range dhist {
-			total += v
-		}
+		//figure out damage required to hit required percentile
+		var cumul, d, med float64
+		med = -1
+		d = -1
 
 		for i, v := range dhist {
-			cumul += v
-			if cumul/total >= cfg.Percentile {
+			cumul += v / float64(cfg.NumSimDmg)
+			if cumul >= cfg.Percentile && d == -1 {
 				d = float64(i)
+				fmt.Printf("found at bin %v out of %v\n", i, len(dhist))
+			}
+			if cumul >= 0.5 && med == -1 {
+				med = float64(i)
 			}
 		}
 
+		fmt.Printf("sum %% should = 1: %.4f\f", cumul)
+
 		d = float64(ds) + d*float64(cfg.DmgBinSize)
+		med = float64(ds) + med*float64(cfg.DmgBinSize)
+
+		labels[i] = fmt.Sprintf("%v (min: %.f max: %.f avg: %.f med: %.f sd: %.f %.0fth pt: %v)", p.Label, dmin, dmax, dmean, med, dsd, cfg.Percentile*100, d)
+
+		fmt.Printf("Threshold damage required: %v\n", d)
 
 		//sim distribution to reach said dmg
-		fstart, fhist, fmin, fmax, fmean, fsd := s.SimArtifactFarm(cfg.NumSim, cfg.FarmBinSize, cfg.NumWorker, d, p)
+		fstart, fhist, fmin, fmax, fmean, fsd := s.SimArtifactFarm(cfg.NumSimFarm, cfg.FarmBinSize, cfg.NumWorker, d, p)
 
 		var fx []int64
 		var fitems []opts.LineData
+		cumul = 0
+		med = -1
 
 		for i, v := range fhist {
 			fx = append(fx, fstart+cfg.FarmBinSize*int64(i))
 			fitems = append(fitems, opts.LineData{Value: v})
+			cumul += v / float64(cfg.NumSimFarm)
+			if cumul >= 0.5 && med == -1 {
+				med = float64(i)
+			}
 		}
+
+		med = float64(fstart) + med*float64(cfg.FarmBinSize)
+
+		farmLabel := fmt.Sprintf("n: %v, min: %v, max %v, mean: %.2f, med: %.2f, sd: %.2f", cfg.NumSimFarm, fmin, fmax, fmean, med, fsd)
 
 		//one chart for every one of these sims
 		lineChart := charts.NewLine()
 		lineChart.SetGlobalOptions(
 			charts.WithTitleOpts(opts.Title{
-				Title: fmt.Sprintf("Histogram (n = %v, %.2f percentile)", cfg.NumSim, cfg.Percentile),
+				Title: fmt.Sprintf("Histogram (n = %v, %.2f percentile)", cfg.NumSimFarm, cfg.Percentile),
 			}),
 			charts.WithYAxisOpts(opts.YAxis{
 				Name: "Freq",
@@ -200,13 +220,13 @@ func main() {
 				Name: "# of Artifacts",
 			}),
 			// charts.WithTooltipOpts(opts.Tooltip{Show: true}),
-			charts.WithLegendOpts(opts.Legend{Show: true, Right: "0%", Orient: "vertical", Data: labels}),
+			charts.WithLegendOpts(opts.Legend{Show: true, Right: "0%", Orient: "vertical", Data: []string{farmLabel}}),
 		)
-		lineChart.AddSeries(labels[i], fitems)
+		lineChart.AddSeries(farmLabel, fitems)
 		lineChart.SetXAxis(fx)
 		fcharts = append(fcharts, lineChart)
 
-		fmt.Printf("min: %v, max %v, mean: %.2f, sd: %.2f\n", fmin, fmax, fmean, fsd)
+		fmt.Printf("farm sim n: %v, min: %v, max %v, mean: %.2f, sd: %.2f\n", cfg.NumSimFarm, fmin, fmax, fmean, fsd)
 	}
 
 	numBin := (binMax - binMin) / cfg.DmgBinSize
@@ -225,19 +245,18 @@ func main() {
 		for j, v := range hist {
 			bins[i][int(offset)+j] += v
 		}
-		labels[i] = fmt.Sprintf("%v (min: %.f max: %.f avg: %.f sd: %.f)", labels[i], min[i], max[i], mean[i], sd[i])
 	}
 
 	for i, b := range bins {
 		for _, v := range b {
-			items[i] = append(items[i], opts.LineData{Value: v / float64(cfg.NumSim)})
+			items[i] = append(items[i], opts.LineData{Value: v / float64(cfg.NumSimDmg)})
 		}
 	}
 
 	lineChart := charts.NewLine()
 	lineChart.SetGlobalOptions(
 		charts.WithTitleOpts(opts.Title{
-			Title: fmt.Sprintf("Probability Density Function (n = %v)", cfg.NumSim),
+			Title: fmt.Sprintf("Probability Density Function (n = %v)", cfg.NumSimDmg),
 		}),
 		charts.WithYAxisOpts(opts.YAxis{
 			Name: "Probability",

@@ -1,6 +1,7 @@
 GraphOutput: "./graphs/out.html"
-NumWorker: 1
-NumSim: 10
+NumWorker: 24
+NumSimDmg: 1000000
+NumSimFarm: 1000000
 DmgBinSize: 100
 FarmBinSize: 10
 WriteHist: false

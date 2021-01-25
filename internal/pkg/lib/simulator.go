@@ -27,6 +27,7 @@ func NewSimulator(
 	mainProb map[Slot][]StatProb,
 	subTier []map[StatType]float64,
 	subProb map[Slot]map[StatType][]StatProb,
+	showDebug bool,
 	cfg ...func(*Simulator) error,
 ) (*Simulator, error) {
 
@@ -48,8 +49,13 @@ func NewSimulator(
 
 	//setup logs
 	if s.Log == nil {
+
 		config := zap.NewDevelopmentConfig()
 		config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+		if !showDebug {
+			config.Level = zapcore.InfoLevel
+		}
+
 		logger, err := config.Build()
 		if err != nil {
 			return nil, err

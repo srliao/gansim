@@ -5,6 +5,7 @@ DmgBinSize: 100
 FarmBinSize: 10
 WriteHist: false
 Percentile: 0.9
+ShowDebug: false
 MainStatFile: "./mainstat.csv"
 SubstatTierFile: "./substat.csv"
 MainStatProbFile: "./mainprob.csv"

@@ -30,6 +30,7 @@ type config struct {
 	SubTierFile  string   `yaml:"SubstatTierFile"`
 	MainProbFile string   `yaml:"MainStatProbFile"`
 	SubProbFile  string   `yaml:"SubProbFile"`
+	ShowDebug    bool     `yaml:"ShowDebug"`
 }
 
 type artifactConfig struct {
@@ -136,6 +137,7 @@ func main() {
 			mp,
 			st,
 			sp,
+			cfg.ShowDebug,
 		)
 		if err != nil {
 			log.Fatal(err)

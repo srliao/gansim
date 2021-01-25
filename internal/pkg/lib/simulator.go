@@ -460,6 +460,9 @@ func (s *Simulator) workerA(p Profile, d float64, resp chan int64, req chan bool
 				}
 			}
 
+			fmt.Printf("---- Completed in %v, dmg = %v ----\n", count, max)
+			fmt.Println(prettySetM(bag))
+
 			artifactStats := make(map[StatType]float64)
 
 			for _, a := range bag {

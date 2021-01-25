@@ -7,9 +7,7 @@ import (
 	"strings"
 )
 
-type Set map[Slot]Artifact
-
-func (s Set) pretty() string {
+func prettySet(s map[Slot]Artifact) string {
 	var sb strings.Builder
 
 	keys := make([]string, 0, len(s))
@@ -25,7 +23,7 @@ func (s Set) pretty() string {
 	return sb.String()
 }
 
-func prettySet(s map[Slot]Artifact) string {
+func prettySetM(s map[Slot]Artifact) string {
 	var sb strings.Builder
 
 	keys := make([]string, 0, len(s))
@@ -35,8 +33,30 @@ func prettySet(s map[Slot]Artifact) string {
 	sort.Strings(keys)
 
 	for _, k := range keys {
-		sb.WriteString(fmt.Sprintf("%v [%v]; ", k, s[Slot(k)].pretty()))
+		sb.WriteString(fmt.Sprintf("\t%v [%v]\n", k, s[Slot(k)].pretty()))
 	}
+
+	artifactStats := make(map[StatType]float64)
+
+	for _, a := range s {
+		artifactStats[a.MainStat.Type] += a.MainStat.Value
+
+		for _, v := range a.Substat {
+			artifactStats[v.Type] += v.Value
+		}
+
+	}
+
+	skeys := make([]string, 0, len(artifactStats))
+	for k := range artifactStats {
+		skeys = append(skeys, string(k))
+	}
+	sort.Strings(skeys)
+	sb.WriteString("\t")
+	for _, k := range skeys {
+		sb.WriteString(fmt.Sprintf("%v: %.4f; ", k, artifactStats[StatType(k)]))
+	}
+	sb.WriteString("\n")
 
 	return sb.String()
 }

@@ -1,12 +1,13 @@
 GraphOutput: "./graphs/out.html"
-NumWorker: 24
+NumWorker: 1
 NumSimDmg: 1000000
-NumSimFarm: 10000
+NumSimFarm: 1000
 DmgBinSize: 100
 FarmBinSize: 10
 WriteHist: false
-Percentile: 0.95
+Percentile: 0.99
 ShowDebug: false
+ShowArtifacts: true
 MainStatFile: "./mainstat.csv"
 SubstatTierFile: "./substat.csv"
 MainStatProbFile: "./mainprob.csv"

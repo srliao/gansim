@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"sort"
 	"time"
 
 	"go.uber.org/zap"
@@ -13,13 +14,14 @@ import (
 
 //Simulator runs one set of simulation
 type Simulator struct {
-	MainStat    map[StatType][]float64
-	MainProb    map[Slot][]StatProb
-	SubTier     []map[StatType]float64
-	SubProb     map[Slot]map[StatType][]StatProb //probility of sub stat given main stat
-	FullSubProb float64                          //probability of getting 4 lines on an artifact
-	Log         *zap.SugaredLogger
-	showDebug   bool
+	MainStat      map[StatType][]float64
+	MainProb      map[Slot][]StatProb
+	SubTier       []map[StatType]float64
+	SubProb       map[Slot]map[StatType][]StatProb //probility of sub stat given main stat
+	FullSubProb   float64                          //probability of getting 4 lines on an artifact
+	Log           *zap.SugaredLogger
+	showDebug     bool
+	showArtifacts bool
 }
 
 //NewSimulator creates a new sim
@@ -29,16 +31,18 @@ func NewSimulator(
 	subTier []map[StatType]float64,
 	subProb map[Slot]map[StatType][]StatProb,
 	showDebug bool,
+	showArtifacts bool,
 	cfg ...func(*Simulator) error,
 ) (*Simulator, error) {
 
 	s := &Simulator{
-		MainStat:    mainStat,
-		MainProb:    mainProb,
-		SubTier:     subTier,
-		SubProb:     subProb,
-		FullSubProb: 207.0 / 932.0,
-		showDebug:   showDebug,
+		MainStat:      mainStat,
+		MainProb:      mainProb,
+		SubTier:       subTier,
+		SubProb:       subProb,
+		FullSubProb:   207.0 / 932.0,
+		showDebug:     showDebug,
+		showArtifacts: showArtifacts,
 	}
 
 	//custom configs
@@ -87,7 +91,6 @@ func NewSimulator(
 				sum += v.Prob
 			}
 			for i, v := range y {
-				sum += v.Prob
 				s.SubProb[slot][k][i].Prob = v.Prob / sum
 			}
 		}
@@ -190,7 +193,7 @@ func (s *Simulator) SimArtifactFarm(n, b, w int64, d float64, p Profile) (start 
 	max = -1
 	count := n
 
-	resp := make(chan int64, n)
+	resp := make(chan simResult, n)
 	req := make(chan bool)
 	done := make(chan bool)
 	for i := 0; i < int(w); i++ {
@@ -216,13 +219,13 @@ func (s *Simulator) SimArtifactFarm(n, b, w int64, d float64, p Profile) (start 
 		count--
 
 		//add the avg, rest doesn't really make sense
-		data = append(data, r)
-		sum += r
-		if r < min {
-			min = r
+		data = append(data, r.count)
+		sum += r.count
+		if r.count < min {
+			min = r.count
 		}
-		if r > max {
-			max = r
+		if r.count > max {
+			max = r.count
 		}
 
 		if (1 - float64(count)/float64(n)) > (progress + 0.1) {
@@ -231,6 +234,26 @@ func (s *Simulator) SimArtifactFarm(n, b, w int64, d float64, p Profile) (start 
 				fmt.Printf("...%.0f%%", 100*progress)
 			}
 		}
+
+		if s.showArtifacts {
+
+			fmt.Printf("---- Completed in %v, dmg = %v ----\n", r.count, r.max)
+			fmt.Println(prettySetM(r.bag))
+
+			fmt.Printf("TOTAL ARTIFACTS:\n")
+
+			for k, m := range r.all {
+
+				var c int64
+				for _, v := range m {
+					c += v
+				}
+				fmt.Printf("%v[%v]: %v\n", k, c, m)
+			}
+
+			fmt.Printf("# of eleP goblet rolled correct: %v\n", r.eleOk)
+		}
+
 	}
 	if !s.showDebug {
 		fmt.Print("...100%\n")
@@ -291,7 +314,15 @@ func (s *Simulator) workerD(p Profile, resp chan DmgResult, req chan bool, done 
 	}
 }
 
-func (s *Simulator) workerA(p Profile, d float64, resp chan int64, req chan bool, done chan bool) {
+type simResult struct {
+	count int64
+	max   float64
+	bag   map[Slot]Artifact
+	all   map[Slot]map[StatType]int64
+	eleOk int64
+}
+
+func (s *Simulator) workerA(p Profile, d float64, resp chan simResult, req chan bool, done chan bool) {
 	seed := time.Now().UnixNano()
 	rand := rand.New(rand.NewSource(seed))
 	// s.Log.Debugw("worker started", "seed", seed)
@@ -301,6 +332,10 @@ func (s *Simulator) workerA(p Profile, d float64, resp chan int64, req chan bool
 			var count int64
 			bag := make(map[Slot]Artifact)
 			max := -1.0
+
+			//track other stats
+			all := make(map[Slot]map[StatType]int64)
+			var eleOk int64
 			/**
 
 			- roll random slot; total++
@@ -349,12 +384,9 @@ func (s *Simulator) workerA(p Profile, d float64, resp chan int64, req chan bool
 				default:
 					next.Type = Circlet
 				}
+
 				s.Log.Debugw("rand art", "worker", seed, "onSet", onSet, "slot", next.Type, "count", count)
-				//if not on set and not goblet, discard
-				if !onSet && next.Type != Goblet {
-					s.Log.Debugw("rand art", "worker", seed, "discarding offset (not goblet)", next.Type)
-					continue NEXTTRY
-				}
+
 				//roll random main stat
 				rm := rand.Float64()
 				prob, ok := s.MainProb[next.Type]
@@ -374,6 +406,19 @@ func (s *Simulator) workerA(p Profile, d float64, resp chan int64, req chan bool
 				}
 				ms := s.MainProb[next.Type][found].Type
 				s.Log.Debugw("rand art", "worker", seed, "ms", ms)
+				next.MainStat.Type = ms
+
+				if _, ok := all[next.Type]; !ok {
+					all[next.Type] = make(map[StatType]int64)
+				}
+				all[next.Type][ms]++
+
+				//THIS CODE CAN BE DONE BEFORE MAIN STAT BUT WE WANT TO DO THIS TO TRACK HOW MANY THRASHED
+				//if not on set and not goblet, discard
+				if !onSet && next.Type != Goblet {
+					s.Log.Debugw("rand art", "worker", seed, "discarding offset (not goblet)", next.Type)
+					continue NEXTTRY
+				}
 				//if main stat == ele%, discard 1/6
 				if ms == EleP {
 					er := rand.Intn(6)
@@ -381,6 +426,7 @@ func (s *Simulator) workerA(p Profile, d float64, resp chan int64, req chan bool
 						s.Log.Debugw("rand art", "worker", seed, "discarding 1/6 eleP", er)
 						continue NEXTTRY
 					}
+					eleOk++
 				}
 				//at this point if it's a goblet and ms == eleP then it's the right element for sure
 				if !onSet && next.Type == Goblet {
@@ -422,6 +468,8 @@ func (s *Simulator) workerA(p Profile, d float64, resp chan int64, req chan bool
 						goodSub++
 					case ER:
 						goodSub++
+					case EM:
+						goodSub++
 					}
 				}
 
@@ -448,11 +496,13 @@ func (s *Simulator) workerA(p Profile, d float64, resp chan int64, req chan bool
 					dd += v.Avg
 				}
 
-				s.Log.Debugw("rand art", "worker", seed, "max", max, "next dmg", dd)
-				s.Log.Debugw("rand art", "worker", seed, "current", bag[next.Type].pretty())
-				s.Log.Debugw("rand art", "worker", seed, "next", next.pretty())
-				s.Log.Debugw("rand art", "worker", seed, "bag", prettySet(bag))
-				s.Log.Debugw("rand art", "worker", seed, "next set", prettySet(nextSet))
+				if s.showDebug {
+					s.Log.Debugw("rand art", "worker", seed, "max", max, "next dmg", dd)
+					s.Log.Debugw("rand art", "worker", seed, "current", bag[next.Type].pretty())
+					s.Log.Debugw("rand art", "worker", seed, "next", next.pretty())
+					s.Log.Debugw("rand art", "worker", seed, "bag", prettySet(bag))
+					s.Log.Debugw("rand art", "worker", seed, "next set", prettySet(nextSet))
+				}
 
 				if dd > max {
 					max = dd
@@ -460,23 +510,13 @@ func (s *Simulator) workerA(p Profile, d float64, resp chan int64, req chan bool
 				}
 			}
 
-			fmt.Printf("---- Completed in %v, dmg = %v ----\n", count, max)
-			fmt.Println(prettySetM(bag))
-
-			artifactStats := make(map[StatType]float64)
-
-			for _, a := range bag {
-				artifactStats[a.MainStat.Type] += a.MainStat.Value
-
-				for _, v := range a.Substat {
-					artifactStats[v.Type] += v.Value
-				}
-
+			resp <- simResult{
+				count: count,
+				max:   max,
+				bag:   bag,
+				all:   all,
+				eleOk: eleOk,
 			}
-
-			s.Log.Debugw("found max", "dmg", max, "count", count, "goblet", bag[Goblet].MainStat.Type, "circlet", bag[Circlet].MainStat.Type, "total stats", artifactStats)
-
-			resp <- count
 		case <-done:
 			return
 		}
@@ -497,23 +537,10 @@ func (s *Simulator) RandArtifact(slot Slot, main StatType, lvl int64, rand *rand
 	r.Level = lvl
 
 	//how many substats
-	var sum, nextProbSum float64
-
-	var found bool
 	p := rand.Float64()
 	var lines = 3
 	if p <= s.FullSubProb {
 		lines = 4
-	}
-	//roll initial substats
-	prb, ok := s.SubProb[slot][main]
-	if !ok {
-		log.Panicf("main stat %v not found in substat probability map", main)
-	}
-	var next []StatProb
-	for _, v := range prb {
-		nextProbSum += v.Prob
-		next = append(next, v)
 	}
 
 	//if artifact lvl is less than 4 AND lines =3, then we only want to roll 3 substats
@@ -522,38 +549,48 @@ func (s *Simulator) RandArtifact(slot Slot, main StatType, lvl int64, rand *rand
 		n = 3
 	}
 
+	//roll initial substats
+	if _, ok := s.SubProb[slot][main]; !ok {
+		log.Panicf("main stat %v not found in substat probability map", main)
+	}
+	prb := make(map[StatType]float64)
+	for _, v := range s.SubProb[slot][main] {
+		prb[v.Type] = v.Prob
+	}
+	keys := make([]string, len(prb))
+	for k := range prb {
+		keys = append(keys, string(k))
+	}
+	sort.Strings(keys)
+
 	for i := 0; i < n; i++ {
-		var current []StatProb
-		var check float64
-		for _, v := range next {
-			current = append(current, StatProb{Type: v.Type, Prob: v.Prob / nextProbSum})
-			check += v.Prob / nextProbSum
+		var sumWeights float64
+		for _, v := range prb {
+			sumWeights += v
 		}
-		p = rand.Float64()
-		//reset next
-		next = []StatProb{}
-		nextProbSum = 0
-		sum = 0
-		found = false
-		for _, v := range current {
-			sum += v.Prob
-			if p <= sum && !found {
-				//this is the one!
-				//roll 1 to 4 for tier
-				//ASSUMPTION = equal weight for each tier
-				tier := rand.Intn(4)
-				val := s.SubTier[tier][v.Type]
-				r.Substat = append(r.Substat, Stat{
-					Type:  v.Type,
-					Value: val,
-				})
-				found = true
-			} else {
-				//add this one so it's available for next roll
-				next = append(next, v)
-				nextProbSum += v.Prob
+		found := ""
+		//pick a number between 0 and sumweights
+		pick := rand.Float64() * sumWeights
+		for _, k := range keys {
+			v := prb[StatType(k)]
+			if pick < v && found == "" {
+				found = k
 			}
+			pick -= v
 		}
+		if found == "" {
+			log.Panic("unexpected - no random stat generated")
+		}
+		t := StatType(found)
+		//set prb for this stat to 0 for next iteration
+		prb[t] = 0
+
+		tier := rand.Intn(4)
+		val := s.SubTier[tier][t]
+		r.Substat = append(r.Substat, Stat{
+			Type:  t,
+			Value: val,
+		})
 	}
 
 	//check how many upgrades to do

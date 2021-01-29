@@ -18,20 +18,21 @@ import (
 )
 
 type config struct {
-	Profiles     []string `yaml:"Profiles"`
-	GraphOutput  string   `yaml:"GraphOutput"`
-	NumSimDmg    int64    `yaml:"NumSimDmg"`
-	NumSimFarm   int64    `yaml:"NumSimFarm"`
-	DmgBinSize   int64    `yaml:"DmgBinSize"`
-	FarmBinSize  int64    `yaml:"FarmBinSize"`
-	WriteHist    bool     `yaml:"WriteHist"`
-	NumWorker    int64    `yaml:"NumWorker"`
-	Percentile   float64  `yaml:"Percentile"`
-	MainStatFile string   `yaml:"MainStatFile"`
-	SubTierFile  string   `yaml:"SubstatTierFile"`
-	MainProbFile string   `yaml:"MainStatProbFile"`
-	SubProbFile  string   `yaml:"SubProbFile"`
-	ShowDebug    bool     `yaml:"ShowDebug"`
+	Profiles      []string `yaml:"Profiles"`
+	GraphOutput   string   `yaml:"GraphOutput"`
+	NumSimDmg     int64    `yaml:"NumSimDmg"`
+	NumSimFarm    int64    `yaml:"NumSimFarm"`
+	DmgBinSize    int64    `yaml:"DmgBinSize"`
+	FarmBinSize   int64    `yaml:"FarmBinSize"`
+	WriteHist     bool     `yaml:"WriteHist"`
+	NumWorker     int64    `yaml:"NumWorker"`
+	Percentile    float64  `yaml:"Percentile"`
+	MainStatFile  string   `yaml:"MainStatFile"`
+	SubTierFile   string   `yaml:"SubstatTierFile"`
+	MainProbFile  string   `yaml:"MainStatProbFile"`
+	SubProbFile   string   `yaml:"SubProbFile"`
+	ShowDebug     bool     `yaml:"ShowDebug"`
+	ShowArtifacts bool     `yaml:"ShowArtifacts"`
 }
 
 type artifactConfig struct {
@@ -137,6 +138,7 @@ func main() {
 			st,
 			sp,
 			cfg.ShowDebug,
+			cfg.ShowArtifacts,
 		)
 		if err != nil {
 			log.Fatal(err)
@@ -177,7 +179,7 @@ func main() {
 			}
 		}
 
-		fmt.Printf("sum %% should = 1: %.4f\f", cumul)
+		fmt.Printf("sum %% should = 1: %.4f\n", cumul)
 
 		d = float64(ds) + d*float64(cfg.DmgBinSize)
 		med = float64(ds) + med*float64(cfg.DmgBinSize)

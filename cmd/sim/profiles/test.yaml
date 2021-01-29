@@ -1,7 +1,7 @@
 CharacterLevel: 90
 CharacterBaseAtk: 335
 WeaponBaseAtk: 510
-EnemyLevel: 88 #lawachurl
+EnemyLevel: 100
 Artifacts:
   Level: 20
   TargetMainStat:
@@ -20,8 +20,9 @@ Abilities:
       - 0.15 #2pc bs
     CCMod:
       - 0.05 #base crit
+      - 0.15 #cryo res
       - 0.2 # 4pc bs
-      - 0.2 # frozen
+      - 0.2 # ascension
     CDMod:
       - 0.5 #base cd
       - 0.384 #ganyu ascension
@@ -45,6 +46,7 @@ Abilities:
       - 0.15 #2pc bs
     CCMod:
       - 0.05 #base crit
+      - 0.15 #cryo res
       - 0.2 # 4pc bs
       - 0.2 # frozen
     CDMod:

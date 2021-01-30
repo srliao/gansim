@@ -1,3 +1,4 @@
+Label: proto-r5-proc-t6-c0
 CharacterLevel: 90
 CharacterBaseAtk: 335
 WeaponBaseAtk: 510
@@ -15,7 +16,7 @@ Abilities:
     VaporizeOrMeltMultiplier: 1
     AtkMod:
       - 0.413 # prototype substat
-      - 0.36 #r1 proc
+      - 0.72 #r1 proc
     EleMod:
       - 0.15 #2pc bs
     CCMod:
@@ -60,6 +61,6 @@ Abilities:
       - 0
     ResistMod:
       - 0.1 #lawachurl base
-      - -0.15 #c1 after first hit
+      # - -0.15 #c1 after first hit
     DefShredMod:
       - 0

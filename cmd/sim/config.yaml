@@ -1,16 +1,19 @@
 GraphOutput: "./graphs/out.html"
-NumWorker: 1
+NumWorker: 24
 NumSimDmg: 1000000
-NumSimFarm: 1000
+NumSimFarm: 1000000
 DmgBinSize: 100
 FarmBinSize: 10
 WriteHist: false
 Percentile: 0.99
 ShowDebug: false
-ShowArtifacts: true
+ShowArtifacts: false
 MainStatFile: "./mainstat.csv"
 SubstatTierFile: "./substat.csv"
 MainStatProbFile: "./mainprob.csv"
 SubProbFile: "./subprob.csv"
 Profiles:
-  - "./profiles/test.yaml"
+  - "./profiles/amos-r1-t6.yaml"
+  - "./profiles/bc-r1-3stack-t6.yaml"
+  - "./profiles/proto-r1-t6-proc.yaml"
+  - "./profiles/proto-r5-t6-proc.yaml"

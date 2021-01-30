@@ -144,6 +144,8 @@ func main() {
 			log.Fatal(err)
 		}
 
+		fmt.Printf("Starting damage sim for %v\n", prf)
+
 		ds, dhist, dmin, dmax, dmean, dsd := s.SimDmgDist(cfg.NumSimDmg, cfg.DmgBinSize, cfg.NumWorker, p)
 
 		histData[i] = dhist
@@ -188,6 +190,8 @@ func main() {
 
 		fmt.Printf("Threshold damage required: %v\n", d)
 
+		fmt.Printf("Starting artifact farm sim for %v\n", prf)
+
 		//sim distribution to reach said dmg
 		fstart, fhist, fmin, fmax, fmean, fsd := s.SimArtifactFarm(cfg.NumSimFarm, cfg.FarmBinSize, cfg.NumWorker, d, p)
 
@@ -207,13 +211,13 @@ func main() {
 
 		med = float64(fstart) + med*float64(cfg.FarmBinSize)
 
-		farmLabel := fmt.Sprintf("n: %v, min: %v, max %v, mean: %.2f, med: %.2f, sd: %.2f", cfg.NumSimFarm, fmin, fmax, fmean, med, fsd)
+		farmLabel := fmt.Sprintf("min: %v, max %v, mean: %.2f, med: %.2f, sd: %.2f", fmin, fmax, fmean, med, fsd)
 
 		//one chart for every one of these sims
 		lineChart := charts.NewLine()
 		lineChart.SetGlobalOptions(
 			charts.WithTitleOpts(opts.Title{
-				Title: fmt.Sprintf("Histogram (n = %v, %.2f percentile)", cfg.NumSimFarm, cfg.Percentile),
+				Title: fmt.Sprintf("%v Histogram (n = %v, %.2f percentile, threshold: %v)", p.Label, cfg.NumSimFarm, cfg.Percentile, d),
 			}),
 			charts.WithYAxisOpts(opts.YAxis{
 				Name: "Freq",
@@ -222,13 +226,13 @@ func main() {
 				Name: "# of Artifacts",
 			}),
 			// charts.WithTooltipOpts(opts.Tooltip{Show: true}),
-			charts.WithLegendOpts(opts.Legend{Show: true, Right: "0%", Orient: "vertical", Data: []string{farmLabel}}),
+			charts.WithLegendOpts(opts.Legend{Show: true, Top: "5%", Right: "0%", Orient: "vertical", Data: []string{farmLabel}}),
 		)
 		lineChart.AddSeries(farmLabel, fitems)
 		lineChart.SetXAxis(fx)
 		fcharts = append(fcharts, lineChart)
 
-		fmt.Printf("farm sim n: %v, min: %v, max %v, mean: %.2f, sd: %.2f\n", cfg.NumSimFarm, fmin, fmax, fmean, fsd)
+		fmt.Printf("farm sim n: %v, min: %v, max %v, mean: %.2f, sd: %.2f\n\n", cfg.NumSimFarm, fmin, fmax, fmean, fsd)
 	}
 
 	numBin := (binMax - binMin) / cfg.DmgBinSize
@@ -258,7 +262,7 @@ func main() {
 	lineChart := charts.NewLine()
 	lineChart.SetGlobalOptions(
 		charts.WithTitleOpts(opts.Title{
-			Title: fmt.Sprintf("Probability Density Function (n = %v)", cfg.NumSimDmg),
+			Title: fmt.Sprintf("Prob Density Func (n = %v)", cfg.NumSimDmg),
 		}),
 		charts.WithYAxisOpts(opts.YAxis{
 			Name: "Probability",
@@ -267,7 +271,7 @@ func main() {
 			Name: "Dmg",
 		}),
 		// charts.WithTooltipOpts(opts.Tooltip{Show: true}),
-		charts.WithLegendOpts(opts.Legend{Show: true, Right: "0%", Orient: "vertical", Data: labels}),
+		charts.WithLegendOpts(opts.Legend{Show: true, Top: "5%", Right: "0%", Orient: "vertical", Data: labels}),
 	)
 	lineChart.SetXAxis(xaxis)
 

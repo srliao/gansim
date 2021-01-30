@@ -1,0 +1,66 @@
+Label: proto-r1-proc-t6-c0
+CharacterLevel: 90
+CharacterBaseAtk: 335
+WeaponBaseAtk: 510
+EnemyLevel: 100
+Artifacts:
+  Level: 20
+  TargetMainStat:
+    Flower: "HP"
+    Feather: "ATK"
+    Sands: "ATK%"
+    Goblet: "Ele%"
+    Circlet: "CD"
+Abilities:
+  - Talent: 1.792 #lvl 6 FA
+    VaporizeOrMeltMultiplier: 1
+    AtkMod:
+      - 0.413 # prototype substat
+      - 0.36 #r1 proc
+    EleMod:
+      - 0.15 #2pc bs
+    CCMod:
+      - 0.05 #base crit
+      - 0.15 #cryo res
+      - 0.2 # 4pc bs
+      - 0.2 # ascension
+    CDMod:
+      - 0.5 #base cd
+      - 0.384 #ganyu ascension
+    DmgMod:
+      - 0
+    EMMod:
+      - 0
+    ReactionBonus:
+      - 0
+    ResistMod:
+      - 0.1 #lawachurl base
+      # - -0.15 #c1 after first hit
+    DefShredMod:
+      - 0
+  - Talent: 3.0464 #lvl 6 bloom
+    VaporizeOrMeltMultiplier: 1
+    AtkMod:
+      - 0.413 # prototype substat
+      - 0.36 #r1 proc
+    EleMod:
+      - 0.15 #2pc bs
+    CCMod:
+      - 0.05 #base crit
+      - 0.15 #cryo res
+      - 0.2 # 4pc bs
+      - 0.2 # frozen
+    CDMod:
+      - 0.5 #base cd
+      - 0.384 #ganyu ascension
+    DmgMod:
+      - 0
+    EMMod:
+      - 0
+    ReactionBonus:
+      - 0
+    ResistMod:
+      - 0.1 #lawachurl base
+      # - -0.15 #c1 after first hit
+    DefShredMod:
+      - 0

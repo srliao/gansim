@@ -1,4 +1,4 @@
-**TL;DR:** It would take on avg 205 5\* artifact drops (std dev 122.94) or roughly 21 days non stop domain farming to gear a F2P 4pc BS Ganyu to 95th percentile damage output. While this is specific to Ganyu, I think the results should be fairly extensible to other characters as just about any main DPS will want to run Atk %/Ele %/CC or CD.
+**TL;DR:** It would take on avg 215 5\* artifact drops (std dev 120.92) or roughly 24 days non stop domain farming to gear a F2P 4pc BS Ganyu to 99th percentile damage output. While this is specific to Ganyu, I think the results should be fairly extensible to other characters as just about any main DPS will want to run Atk %/Ele %/CC or CD.
 
 ## Original motivation
 
@@ -10,7 +10,7 @@ By doing this doing this enough times (it converges pretty well even at 100,000 
 
 Here's an example of the output
 
-https://imgur.com/rHbHrTg
+https://imgur.com/p9INyM3
 
 And then after some discussion with some friends, I thought wouldn't it be great if I can then figure out on average how long would it take to farm up the artifacts required to achieve top dps.
 
@@ -84,15 +84,15 @@ For damage formula, I used the formulate posted [here](https://old.reddit.com/r/
 
 ## Results
 
-Here's the damage simulation for a Lvl 90 Gany with Lvl 90 Prototype R1 (procced), 4pc BS vs a lvl 88 Lawachurl. Note that this is the combined average damage of the arrow + bloom on charged level 2. Note that this is with C1 Ganyu (which increases the damage of the bloom re 15% resist reduction) I'm using these specific values because that's what I tested against in game to make sure my damage calculation is correct.
+Here's the damage simulation for a Lvl 90 Ganyu with Lvl 90 Prototype R1 (procced), 4pc BS vs a lvl 88 Lawachurl. Note that this is the combined average damage of the arrow + bloom on charged level 2. Note that this is with C1 Ganyu (which increases the damage of the bloom re 15% resist reduction) I'm using these specific values because that's what I tested against in game to make sure my damage calculation is correct.
 
-https://imgur.com/Y3qGTtI
+https://imgur.com/3TagG16
 
 I only did 1mil simulation since it converges pretty nicely already. 10mil takes too long.
 
 From this simulation we can calculate the 95th percentile is roughly 20,200 damage. So using that, I sim how many artifact drops it would take to reach that damage threshold
 
-https://imgur.com/NAZjiZY
+https://imgur.com/pqTiTws
 
 Again 1mil simulation because my code is slow and 10mil would take forever. Here's the summary statistics:
 

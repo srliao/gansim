@@ -1,0 +1,89 @@
+Label: xiao-c0-primo-maxstack
+CharacterLevel: 90
+CharacterBaseAtk: 349
+WeaponBaseAtk: 674
+EnemyLevel: 100
+Artifacts:
+  Level: 20
+  TargetMainStat:
+    Flower: "HP"
+    Feather: "ATK"
+    Sands: "ATK%"
+    Goblet: "Ele%"
+    Circlet: "CD"
+Abilities:
+  - Talent: 0.7574 #normal 1
+    VaporizeOrMeltMultiplier: 1
+    AtkMod:
+      - 0.224 #spear max stack
+      - 0.18 #2pc glad
+    EleMod:
+      - 0.15 #2pc viri
+    CCMod:
+      - 0.05 #base crit
+      - 0.242 #max ascension
+      - 0.221 #spear
+    CDMod:
+      - 0.5 #base cd
+    DmgMod:
+      - 0.12 #spear max stack
+      - 0.77 #talent 6 ult
+    EMMod:
+      - 0
+    ReactionBonus:
+      - 0
+    ResistMod:
+      - 0.1 #base
+      # - -0.15 #c1 after first hit
+    DefShredMod:
+      - 0
+  - Talent: 1.665 #charge 1
+    VaporizeOrMeltMultiplier: 1
+    AtkMod:
+      - 0.224 #spear max stack
+      - 0.18 #2pc glad
+    EleMod:
+      - 0.15 #2pc viri
+    CCMod:
+      - 0.05 #base crit
+      - 0.242 #max ascension
+      - 0.221 #spear
+    CDMod:
+      - 0.5 #base cd
+    DmgMod:
+      - 0.12 #spear max stack
+      - 0.77 #talent 6 ult
+    EMMod:
+      - 0
+    ReactionBonus:
+      - 0
+    ResistMod:
+      - 0.1 #base
+      # - -0.15 #c1 after first hit
+    DefShredMod:
+      - 0
+  - Talent: 2.9707 #charge 1
+    VaporizeOrMeltMultiplier: 1
+    AtkMod:
+      - 0.224 #spear max stack
+      - 0.18 #2pc glad
+    EleMod:
+      - 0.15 #2pc viri
+    CCMod:
+      - 0.05 #base crit
+      - 0.242 #max ascension
+      - 0.221 #spear
+    CDMod:
+      - 0.5 #base cd
+    DmgMod:
+      - 0.15 #spear max stack
+      - 0.77 #talent 6 ult
+    EMMod:
+      - 0
+    ReactionBonus:
+      - 0
+    ResistMod:
+      - 0.1 #base
+      # - -0.15 #c1 after first hit
+    DefShredMod:
+      - 0

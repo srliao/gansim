@@ -7,6 +7,18 @@ import (
 	"strings"
 )
 
+//Stat represents one stat
+type Stat struct {
+	Type  StatType `yaml:"Type"`
+	Value float64  `yaml:"Value"`
+}
+
+//StatProb represents probability of getting a stat
+type StatProb struct {
+	Type StatType `yaml:"Type"`
+	Prob float64  `yaml:"Prob"`
+}
+
 func prettySet(s map[Slot]Artifact) string {
 	var sb strings.Builder
 

@@ -1,5 +1,7 @@
 **TL;DR:** It would take on avg 215 5\* artifact drops (std dev 120.92) or roughly 24 days non stop domain farming to gear a F2P 4pc BS Ganyu to 99th percentile damage output. While this is specific to Ganyu, I think the results should be fairly extensible to other characters as just about any main DPS will want to run Atk %/Ele %/CC or CD.
 
+So I originally tried posting this to the main genshin reddit but since this is a new account with no karma, the post sat in mod queue. Hope I have better luck here in generating some discussion (and maybe someone to check out my code and spot any errors)
+
 ## Original motivation
 
 I originally wrote this sim as a way to compare to damage output of Amos R1 vs Prototype R5 just to see how big of a gap there is. There were plenty of spreadsheet calculations but those all had assumed certain artifact stats. Obviously not everyone will have the same stats as those assumptions and I wasn't sure if having different stats will significantly affect the outcome.
@@ -10,7 +12,7 @@ By doing this doing this enough times (it converges pretty well even at 100,000 
 
 Here's an example of the output
 
-https://imgur.com/p9INyM3
+https://imgur.com/sN4v2zX
 
 And then after some discussion with some friends, I thought wouldn't it be great if I can then figure out on average how long would it take to farm up the artifacts required to achieve top dps.
 
@@ -84,27 +86,23 @@ For damage formula, I used the formulate posted [here](https://old.reddit.com/r/
 
 ## Results
 
-Here's the damage simulation for a Lvl 90 Ganyu with Lvl 90 Prototype R1 (procced), 4pc BS vs a lvl 88 Lawachurl. Note that this is the combined average damage of the arrow + bloom on charged level 2. Note that this is with C1 Ganyu (which increases the damage of the bloom re 15% resist reduction) I'm using these specific values because that's what I tested against in game to make sure my damage calculation is correct.
+Based on the result of the damage sim linked above (see https://imgur.com/sN4v2zX), we calculate the 99th percentile is roughly 22,200. So then doing 1mil sims of artifact farm gives us the following results
 
-https://imgur.com/3TagG16
+https://imgur.com/veOwZTG
 
-I only did 1mil simulation since it converges pretty nicely already. 10mil takes too long.
-
-From this simulation we can calculate the 95th percentile is roughly 20,200 damage. So using that, I sim how many artifact drops it would take to reach that damage threshold
-
-https://imgur.com/pqTiTws
-
-Again 1mil simulation because my code is slow and 10mil would take forever. Here's the summary statistics:
+Only doing 1 mil sim here because it converges nicely already and 10mil just takes too long (code not optimized). Here's the summary stats:
 
 Min: 7
-Max: 1400
-Mean: 204.79
-Median: 170 (an estimate becaused I binned the data first increments of 10 before calculating median)
-Std Dev: 122.94
+Max: 1607
+Mean: 215.07
+Median: 190 (an estimate becaused I binned the data first increments of 10 before calculating median)
+Std Dev: 120.64
+
+My repo can be found [here](https://github.com/srliao/gansim). Although disregard the README file as I haven't updated that yet (that's an old version). The graphs linked above can be found [here](https://github.com/srliao/gansim/blob/master/cmd/sim/graphs/sample.html). You'll have to download the html file to your computer first to view it though.
 
 ## Other remarks
 
-Looking at these results, I guess it's really not all that bad to gear a character. Considering that a good set of +20 artifacts is actually transferable between characters. In addition, if it actually takes on average 200 runs to gear 1 character then I can probably start slacking off on my daily artifact runs. I believe it takes roughly 18 runs to level one 5\* to +20 so I should have enough exp just from farming the domain itself.
+Looking at these results, I guess it's really not all that bad to gear a character. Considering that a good set of +20 artifacts is actually transferable between characters. In addition, if it actually takes on average 220 runs to gear 1 character then I can probably start slacking off on my daily artifact runs. I believe it takes roughly 18 runs to level one 5\* to +20 so I should have enough exp just from farming the domain itself.
 
 Also, I'm quite happy with how the sim turned out. I think the first damage sim is a much more useful way of comparing weapons vs. the traditional spreadsheet. This is because I make no assumption about the substats as that could play a big role in the overall damage. Much easier to look at and compare two distributions to determine which weapon is better.
 

@@ -21,6 +21,7 @@ type Profile struct {
 	//abilities
 	Abilities []struct {
 		Talent            float64   `default:"1.0" yaml:"Talent"`
+		TalentIsElemental bool      `default:"true" yaml:"TalentIsElemental"`
 		VapMeltMultiplier float64   `default:"1.0" yaml:"VaporizeOrMeltMultiplier"`
 		AtkMod            []float64 `yaml:"AtkMod"`
 		EleMod            []float64 `yaml:"EleMod"`
@@ -31,6 +32,12 @@ type Profile struct {
 		ReactionBonus     []float64 `yaml:"ReactionBonus"`
 		ResistMod         []float64 `yaml:"ResistMod"`
 		DefShredMod       []float64 `yaml:"DefShredMod"`
+		//special modifiers such as zhongli ascension or staff of honma
+		SpecialMod []struct {
+			BonusStat StatType `yaml:"BonusStat"`
+			ScaleStat StatType `yaml:"ScaleStat"`
+			Modifier  float64  `yaml:"Modifier"`
+		}
 	} `yaml:"Abilities"`
 }
 

@@ -1,4 +1,4 @@
-GraphOutput: "./graphs/out.html"
+GraphOutput: "./graphs/xiao.html"
 NumWorker: 24
 NumSimDmg: 1000000
 NumSimFarm: 1000000
@@ -13,7 +13,15 @@ SubstatTierFile: "./substat.csv"
 MainStatProbFile: "./mainprob.csv"
 SubProbFile: "./subprob.csv"
 Profiles:
-  - "./profiles/amos-r1-t6.yaml"
-  - "./profiles/bc-r1-3stack-t6.yaml"
-  - "./profiles/proto-r1-t6-proc.yaml"
-  - "./profiles/proto-r5-t6-proc.yaml"
+  - "./profiles/xiao-c0-primordial-maxstack.yaml"
+  # - "./profiles/xiao-c0-primordial-maxstack-ts.yaml"
+  # - "./profiles/xiao-c0-primordial-maxstack-bolide.yaml"
+  # - "./profiles/xiao-c0-primordial-maxstack-atkcup.yaml"
+  - "./profiles/xiao-c0-dm-2plus.yaml"
+  - "./profiles/xiao-c0-bc-3stack-cc.yaml"
+  # - "./profiles/xiao-c0-bc-3stack-cd.yaml"
+  - "./profiles/xiao-c0-bc-0stack-cc.yaml"
+  - "./profiles/xiao-c0-skyward-1proc.yaml"
+  # - "./profiles/bc-r1-3stack-t6.yaml"
+  # - "./profiles/proto-r1-t6-proc.yaml"
+  # - "./profiles/proto-r5-t6-proc.yaml"

@@ -2,6 +2,7 @@ package lib
 
 import (
 	"fmt"
+	"log"
 	"math"
 )
 
@@ -25,6 +26,7 @@ type Profile struct {
 		VapMeltMultiplier float64   `default:"1.0" yaml:"VaporizeOrMeltMultiplier"`
 		AtkMod            []float64 `yaml:"AtkMod"`
 		EleMod            []float64 `yaml:"EleMod"`
+		PhyMod            []float64 `yaml:"PhyMod"`
 		CCMod             []float64 `yaml:"CCMod"`
 		CDMod             []float64 `yaml:"CDMod"`
 		DmgMod            []float64 `yaml:"DmgMod"`
@@ -32,12 +34,17 @@ type Profile struct {
 		ReactionBonus     []float64 `yaml:"ReactionBonus"`
 		ResistMod         []float64 `yaml:"ResistMod"`
 		DefShredMod       []float64 `yaml:"DefShredMod"`
-		//special modifiers such as zhongli ascension or staff of honma
-		SpecialMod []struct {
+		//special stat modifiers such as staff of honma
+		SpecialStatMod []struct {
 			BonusStat StatType `yaml:"BonusStat"`
 			ScaleStat StatType `yaml:"ScaleStat"`
 			Modifier  float64  `yaml:"Modifier"`
-		}
+		} `yaml:"SpecialStatMod"`
+		//special dmg modifiers such as zhongli
+		SpecialDmgMod []struct {
+			ScaleStat StatType `yaml:"ScaleStat"`
+			Modifier  float64  `yaml:"Modifier"`
+		} `yaml:"SpecialDmgMod"`
 	} `yaml:"Abilities"`
 }
 
@@ -78,7 +85,7 @@ func Calc(p Profile, s map[Slot]Artifact, showDebug bool) []DmgResult {
 	var r []DmgResult
 
 	for _, ab := range p.Abilities {
-		var totalAtk, atk, atkp, cr, cd, elep, em, dmgBonus, reactionBonus, defShred, defAdj, resAdj, res float64
+		var totalAtk, atk, atkp, cr, cd, elep, phyp, em, dmgBonus, reactionBonus, defShred, defAdj, resAdj, res float64
 		totalAtk = baseAtk
 
 		atk += artifactStats[ATK]
@@ -87,6 +94,7 @@ func Calc(p Profile, s map[Slot]Artifact, showDebug bool) []DmgResult {
 		cd += artifactStats[CD]
 		elep += artifactStats[EleP]
 		em += artifactStats[EM]
+		phyp += artifactStats[PhyP]
 
 		if showDebug {
 			fmt.Print("--------------------------\n")
@@ -100,6 +108,14 @@ func Calc(p Profile, s map[Slot]Artifact, showDebug bool) []DmgResult {
 			fmt.Print("\n")
 		}
 
+		//add special mods first
+		for _, s := range ab.SpecialStatMod {
+			switch s.BonusStat {
+			case ATKP:
+				atkp += s.Modifier * artifactStats[s.ScaleStat]
+			}
+		}
+
 		//add up atk % mods
 		for _, v := range ab.AtkMod {
 			atkp += v
@@ -108,14 +124,27 @@ func Calc(p Profile, s map[Slot]Artifact, showDebug bool) []DmgResult {
 		totalAtk = totalAtk*(1+atkp) + atk
 
 		//add up dmg mods
-		for _, v := range ab.EleMod {
-			dmgBonus += v
+		//only if abil is element
+		if ab.TalentIsElemental {
+			for _, v := range ab.EleMod {
+				dmgBonus += v
+			}
+			dmgBonus += elep //add in ele bonus from artifacts
+		} else {
+			for _, v := range ab.PhyMod {
+				dmgBonus += v
+			}
+
+			dmgBonus += phyp
 		}
 		for _, v := range ab.DmgMod {
 			dmgBonus += v
 		}
 
-		dmgBonus += elep //add in ele bonus from artifacts
+		//special dmg mods
+		for _, s := range ab.SpecialDmgMod {
+			dmgBonus += artifactStats[s.ScaleStat] * s.Modifier
+		}
 
 		//add up crit mods
 		for _, v := range ab.CCMod {
@@ -130,10 +159,12 @@ func Calc(p Profile, s map[Slot]Artifact, showDebug bool) []DmgResult {
 			cr = 1
 		}
 		if cr < 0 {
+			log.Println("WARNING, CRIT RATE < 0")
 			cr = 0
 		}
 		if cd < 0 {
 			cd = 0
+			log.Println("WARNING, CRIT DMG < 0")
 		}
 
 		//add up em mod

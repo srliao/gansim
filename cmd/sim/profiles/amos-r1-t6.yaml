@@ -14,6 +14,7 @@ Artifacts:
 Abilities:
   - Talent: 1.792 #lvl 6 FA
     VaporizeOrMeltMultiplier: 1
+    TalentIsElemental: true
     AtkMod:
       - 0.496
     EleMod:
@@ -39,6 +40,7 @@ Abilities:
       - 0
   - Talent: 3.0464 #lvl 6 bloom
     VaporizeOrMeltMultiplier: 1
+    TalentIsElemental: true
     AtkMod:
       - 0.496
     EleMod:

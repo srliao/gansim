@@ -1,0 +1,110 @@
+Label: ning-c6-glad-cc
+CharacterLevel: 90
+CharacterBaseAtk: 212
+WeaponBaseAtk: 510
+EnemyLevel: 100
+Artifacts:
+  Level: 20
+  TargetMainStat:
+    Flower: "HP"
+    Feather: "ATK"
+    Sands: "ATK%"
+    Goblet: "Ele%"
+    Circlet: "CR"
+Abilities:
+  - Talent: 0.448 #lvl 8 normal
+    VaporizeOrMeltMultiplier: 1
+    AtkMod:
+      - 0.18 #2pc glad
+    EleMod:
+      - 0.15 #2pc geo
+      - 0.24 #ascension
+      # - 0.12 #geo screen no gate yet
+    CCMod:
+      - 0.05 #base crit
+      - 0.276 #pearl
+    CDMod:
+      - 0.5 #base cd
+    DmgMod:
+      - 0.0 # no pearl increase on first auto
+    EMMod:
+      - 0
+    ReactionBonus:
+      - 0
+    ResistMod:
+      - 0.1 #base
+      # - -0.15 #c1 after first hit
+    DefShredMod:
+      - 0
+  - Talent: 3.6864 #lvl 8 screen
+    VaporizeOrMeltMultiplier: 1
+    AtkMod:
+      - 0.18 #2pc glad
+    EleMod:
+      - 0.15 #2pc geo
+      - 0.24 #ascension
+      # - 0.12 #geo screen no gate yet
+    CCMod:
+      - 0.05 #base crit
+      - 0.276 #pearl
+    CDMod:
+      - 0.5 #base cd
+    DmgMod:
+      - 0.2 #pearl on auto
+    EMMod:
+      - 0
+    ReactionBonus:
+      - 0
+    ResistMod:
+      - 0.1 #base
+      # - -0.15 #c1 after first hit
+    DefShredMod:
+      - 0
+  - Talent: 16.6968 #lvl 8 ult = 12 gems
+    VaporizeOrMeltMultiplier: 1
+    AtkMod:
+      - 0.18 #2pc glad
+    EleMod:
+      - 0.15 #2pc geo
+      - 0.24 #ascension
+      - 0.12 #geo screen
+    CCMod:
+      - 0.05 #base crit
+      - 0.276 #pearl
+    CDMod:
+      - 0.5 #base cd
+    DmgMod:
+      - 0.2 #pearl on auto
+    EMMod:
+      - 0
+    ReactionBonus:
+      - 0
+    ResistMod:
+      - 0.1 #base
+      # - -0.15 #c1 after first hit
+    DefShredMod:
+      - 0
+  - Talent: 3.6864 #lvl 8 screen again
+    VaporizeOrMeltMultiplier: 1
+    AtkMod:
+      - 0.18 #2pc glad
+    EleMod:
+      - 0.15 #2pc geo
+      - 0.24 #ascension
+      - 0.12 #geo screen
+    CCMod:
+      - 0.05 #base crit
+      - 0.276 #pearl
+    CDMod:
+      - 0.5 #base cd
+    DmgMod:
+      - 0.2 #pearl on auto
+    EMMod:
+      - 0
+    ReactionBonus:
+      - 0
+    ResistMod:
+      - 0.1 #base
+      # - -0.15 #c1 after first hit
+    DefShredMod:
+      - 0

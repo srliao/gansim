@@ -2,14 +2,12 @@ import { Button, Checkbox } from "@blueprintjs/core";
 import { RootState } from "app/store";
 import React from "react";
 import { useSelector } from "react-redux";
-import { createWorkerFactory, useWorker } from "@shopify/react-web-worker";
 
-const createSim = createWorkerFactory(() => import("workers/damage_sim"));
 
 // Create new instance
 
 function DamageSim() {
-  const sim = useWorker(createSim);
+
   const { profiles } = useSelector((state: RootState) => {
     return {
       profiles: state.profile.profiles,
@@ -19,6 +17,7 @@ function DamageSim() {
   const [checked, setChecked] = React.useState<Array<number>>([]);
   const [n, setN] = React.useState<number>(100000);
   const [bin, setBin] = React.useState<number>(100);
+
 
   const handleCheck = (id: number) => {
     return () => {
@@ -40,10 +39,8 @@ function DamageSim() {
     if (checked.length > 0) {
       let p = profiles.find((e) => e.id === checked[0]);
       if (p !== undefined) {
-        sim.DSim(n, 10, 4, p).then((r) => {
-          console.log(r);
-        });
-        console.log("this shouldn't block?");
+        // @ts-ignore
+        let result = wasmPrint(JSON.stringify(p))
       }
     }
   };

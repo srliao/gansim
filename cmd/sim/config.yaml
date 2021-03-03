@@ -1,7 +1,7 @@
 GraphOutput: "./graphs/ning.html"
 NumWorker: 24
-NumSimDmg: 100000
-NumSimFarm: 10
+NumSimDmg: 1000000
+NumSimFarm: 1000000
 DmgBinSize: 100
 FarmBinSize: 10
 WriteHist: false

@@ -21,6 +21,7 @@ Backup of *.doc*
 
 *.html
 !sample.html
+!index.html
 
 .DS_Store
 

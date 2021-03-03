@@ -11,7 +11,13 @@ function App() {
   const dispatch = useDispatch();
   React.useEffect(() => {
     dispatch(load());
+    // @ts-ignore
+    const go = new Go(); // eslint-disable-line
+    WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject).then((result) => {
+      go.run(result.instance);
+    });
   }, []);
+
   return (
     <div className="App">
       <Nav />

@@ -1,5 +1,7 @@
 package combat
 
+import "log"
+
 //Unit keeps track of the status of one enemy Unit
 type Unit struct {
 	Level float64
@@ -9,6 +11,11 @@ type Unit struct {
 	Buffs   map[string]bool
 	Debuffs map[string]bool
 
+	//action to be applied against this unit. action is applied when
+	//delay = 0; otherwise decrement delay by 1
+	//once applied, action should be removed from this list
+	Actions []UnitAction
+
 	//Hooks are called each tick; not sure usage yet
 	Hooks map[string]func()
 
@@ -17,6 +24,13 @@ type Unit struct {
 
 	//stats
 	Damage float64 //total damage received
+}
+
+//UnitAction represents an action to be performed on a unit after some delay (could be 0)
+type UnitAction struct {
+	//each action will either apply an aura, deal damage, apply a debuff, or apply a buff
+	Callback HookFunc
+	Delay    int
 }
 
 //ApplyDamage applies ability damage to an Unit
@@ -41,8 +55,19 @@ func (a *Aura) tick() {}
 //Elements is a string representing an element i.e. HYDRO/PYRO/etc...
 type Elements string
 
-//Action can be swap, dash, jump, attack, skill, burst
-type Action string
+//ActionType can be swap, dash, jump, attack, skill, burst
+type ActionType string
+
+//ActionType constants
+const (
+	ActionTypeSwap          ActionType = "swap"
+	ActionTypeDash          ActionType = "dash"
+	ActionTypeJump          ActionType = "jump"
+	ActionTypeAttack        ActionType = "attack"
+	ActionTypeChargedAttack ActionType = "charge"
+	ActionTypeSkill         ActionType = "skill"
+	ActionTypeBurst         ActionType = "burst"
+)
 
 //Character contains all the information required to calculate
 type Character struct {
@@ -61,10 +86,10 @@ type Character struct {
 
 	//OnField uptime tracker for any skill that stays on field independent
 	//of user action
-	OnField map[Action]int
+	OnField map[ActionType]int
 
 	//ICD tracker for actions
-	ICD map[Action]int
+	ICD map[ActionType]int
 
 	//TickHooks are functions to be called on each tick
 	//this is useful for on field effect such as gouba/oz/pyronado
@@ -75,9 +100,10 @@ type Character struct {
 
 	//ability functions to be defined by each character on how they will
 	//affect the unit
-	Attack func(u *Unit)
-	Skill  func(u *Unit)
-	Burst  func(u *Unit)
+	Attack       func(c *Character, u *Unit) int
+	ChargeAttack func(c *Character, u *Unit) int
+	Skill        func(c *Character, u *Unit) int
+	Burst        func(c *Character, u *Unit) int
 
 	//somehow we have to deal with artifact effects too?
 	ArtifactSetBonus func(u *Unit)
@@ -87,7 +113,7 @@ type Character struct {
 	BaseAtk       int64
 	WeaponAtk     int64
 	ArtifactStats map[string]float64
-	Talent        map[Action]int64 //talent levels
+	Talent        map[ActionType]int64 //talent levels
 }
 
 //HookFunc describes a function to be called on a tick
@@ -104,15 +130,15 @@ func (c *Character) orb(e Elements, isActive bool) {
 //Sim keeps track of one simulation
 type Sim struct {
 	Target *Unit
-	Actors []Character
+	Actors []*Character
 }
 
-//Run the sim
-func (s *Sim) Run() {
+//Run the sim; length in seconds
+func (s *Sim) Run(length int) {
 	var cooldown int
 	var active int //index of the currently active car
 	//60fps, 60s/min, 2min
-	for f := 0; f < 7200; f++ {
+	for f := 0; f < 60*length; f++ {
 		//tick target and each character
 		//target doesn't do anything, just takes punishment, so it won't affect cd
 		s.Target.tick()
@@ -132,30 +158,35 @@ func (s *Sim) Run() {
 		//otherwise only either action or swaps can trigger cooldown
 		//we figure out what the next action is to be
 		next := s.next()
+		current := s.Actors[active]
 
 		//we trigger the next action; action currently is either a character abil
 		//or a swap
 		//this corresponds to a manual action in game by the player i.e.
 		//left click, right click, q, or e press
 		switch next {
-		case "swap":
+		case ActionTypeSwap:
 			active = 0     //swap active to whoever
 			cooldown = 100 //trigger cooldown
-		case "dash":
+		case ActionTypeDash:
 			//simply puts us in cooldown
 			cooldown = 100
-		case "jump":
+		case ActionTypeJump:
 			//simply puts us in cooldown
 			cooldown = 100
-		case "attack":
-			s.Actors[active].Attack(s.Target)
-		case "burst":
-		case "skill":
+		case ActionTypeAttack:
+			log.Println("not implemented")
+		case ActionTypeChargedAttack:
+			current.ChargeAttack(current, s.Target)
+		case ActionTypeBurst:
+			log.Println("not implemented")
+		case ActionTypeSkill:
+			log.Println("not implemented")
 		}
 	}
 }
 
-func (s *Sim) next() Action {
+func (s *Sim) next() ActionType {
 	//determine the next action somehow
 	return "swap"
 }

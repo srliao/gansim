@@ -1,59 +1,28 @@
 package combat
 
-import "log"
-
-//Unit keeps track of the status of one enemy Unit
-type Unit struct {
-	Level float64
-
-	//Auras
-	Auras   map[Elements]Aura
-	Buffs   map[string]bool
-	Debuffs map[string]bool
-
-	//action to be applied against this unit. action is applied when
-	//delay = 0; otherwise decrement delay by 1
-	//once applied, action should be removed from this list
-	Actions []UnitAction
-
-	//Hooks are called each tick; not sure usage yet
-	Hooks map[string]func()
-
-	//special hooks
-	DamageHooks map[string]HookFunc //this is for actions that triggers on damage, such as fischl oz thinggy
-
-	//stats
-	Damage float64 //total damage received
-}
-
-//UnitAction represents an action to be performed on a unit after some delay (could be 0)
-type UnitAction struct {
-	//each action will either apply an aura, deal damage, apply a debuff, or apply a buff
-	Callback HookFunc
-	Delay    int
-}
-
-//ApplyDamage applies ability damage to an Unit
-func (u *Unit) ApplyDamage() {}
-
-//ApplyAura applies an aura to the Unit
-func (u *Unit) ApplyAura() {
-	//can trigger apply damage for superconduct, electrocharged, etc..
-}
-
-func (u *Unit) tick() {}
-
-//Field keeps track of field statuses
-type Field struct {
-}
+import (
+	"log"
+	"math/rand"
+	"time"
+)
 
 //Aura keeps track of the status of each aura
 type Aura struct{}
 
 func (a *Aura) tick() {}
 
-//Elements is a string representing an element i.e. HYDRO/PYRO/etc...
-type Elements string
+//ElementType is a string representing an element i.e. HYDRO/PYRO/etc...
+type ElementType string
+
+//ElementType should be pryo, hydro, cryo, electro, geo, anemo and maybe dendro
+const (
+	ElementTypePyro    ElementType = "pyro"
+	ElementTypeHydro   ElementType = "hydro"
+	ElementTypeCryo    ElementType = "cryo"
+	ElementTypeElectro ElementType = "electro"
+	ElementTypeGeo     ElementType = "geo"
+	ElementTypeAnemo   ElementType = "anemo"
+)
 
 //ActionType can be swap, dash, jump, attack, skill, burst
 type ActionType string
@@ -100,10 +69,10 @@ type Character struct {
 
 	//ability functions to be defined by each character on how they will
 	//affect the unit
-	Attack       func(c *Character, u *Unit) int
-	ChargeAttack func(c *Character, u *Unit) int
-	Skill        func(c *Character, u *Unit) int
-	Burst        func(c *Character, u *Unit) int
+	Attack       func(c *Character, f *Field, u *Unit) int
+	ChargeAttack func(c *Character, f *Field, u *Unit) int
+	Skill        func(c *Character, f *Field, u *Unit) int
+	Burst        func(c *Character, f *Field, u *Unit) int
 
 	//somehow we have to deal with artifact effects too?
 	ArtifactSetBonus func(u *Unit)
@@ -123,20 +92,26 @@ func (c *Character) tick(u *Unit) {
 	//this function gets called for every character every tick
 }
 
-func (c *Character) orb(e Elements, isActive bool) {
+func (c *Character) orb(e ElementType, isActive bool) {
 	//called when elemental orgs are received by the character
+}
+
+//Field describes field effects (mainly the buffs)
+type Field struct {
 }
 
 //Sim keeps track of one simulation
 type Sim struct {
 	Target *Unit
 	Actors []*Character
+	Field  *Field
 }
 
 //Run the sim; length in seconds
 func (s *Sim) Run(length int) {
 	var cooldown int
 	var active int //index of the currently active car
+	rand.Seed(time.Now().UnixNano())
 	//60fps, 60s/min, 2min
 	for f := 0; f < 60*length; f++ {
 		//tick target and each character
@@ -177,7 +152,7 @@ func (s *Sim) Run(length int) {
 		case ActionTypeAttack:
 			log.Println("not implemented")
 		case ActionTypeChargedAttack:
-			current.ChargeAttack(current, s.Target)
+			current.ChargeAttack(current, s.Field, s.Target)
 		case ActionTypeBurst:
 			log.Println("not implemented")
 		case ActionTypeSkill:

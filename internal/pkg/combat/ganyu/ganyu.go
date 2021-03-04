@@ -11,13 +11,16 @@ func New() *combat.Character {
 	return &c
 }
 
-func charge(c *combat.Character, u *combat.Unit) int {
+func charge(c *combat.Character, f *combat.Field, u *combat.Unit) int {
 
 	travel := 100
 
+	//snap shot stats at cast time here
+	d := combat.DamageProfile{}
+
 	initial := func(u *combat.Unit) {
 		//apply damage
-		u.ApplyDamage()
+		u.ApplyDamage(d)
 
 		//if not ICD, apply aura
 		if _, ok := c.ICD[combat.ActionTypeChargedAttack]; !ok {
@@ -34,7 +37,7 @@ func charge(c *combat.Character, u *combat.Unit) int {
 	//apply second bloom w/ more travel time
 	bloom := func(u *combat.Unit) {
 		//apply damage
-		u.ApplyDamage()
+		u.ApplyDamage(d)
 
 		//if not ICD, apply aura
 		if _, ok := c.ICD[combat.ActionTypeChargedAttack]; !ok {

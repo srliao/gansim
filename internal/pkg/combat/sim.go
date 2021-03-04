@@ -78,6 +78,7 @@ type Character struct {
 	ArtifactSetBonus func(u *Unit)
 
 	//character specific information; need this for damage calc
+	Name          string
 	Level         int64
 	BaseAtk       float64
 	WeaponAtk     float64
@@ -134,6 +135,10 @@ func (s *Sim) Run(length int, list []Action) {
 			continue
 		}
 
+		if i >= len(list) {
+			continue
+		}
+
 		//otherwise only either action or swaps can trigger cooldown
 		//we figure out what the next action is to be
 		next := list[i]
@@ -158,16 +163,16 @@ func (s *Sim) Run(length int, list []Action) {
 			fmt.Printf("[%v] jumping\n", s.Frame)
 			cooldown = 100
 		case ActionTypeAttack:
-			fmt.Printf("[%v] char #%v executing attack\n", s.Frame, active)
+			fmt.Printf("[%v] %v executing attack\n", s.Frame, current.Name)
 			cooldown = current.Attack(s)
 		case ActionTypeChargedAttack:
-			fmt.Printf("[%v] char #%v executing charged attack\n", s.Frame, active)
+			fmt.Printf("[%v] %v executing charged attack\n", s.Frame, current.Name)
 			cooldown = current.ChargeAttack(s)
 		case ActionTypeBurst:
-			fmt.Printf("[%v] char #%v executing burst\n", s.Frame, active)
+			fmt.Printf("[%v] %v executing burst\n", s.Frame, current.Name)
 			cooldown = current.Burst(s)
 		case ActionTypeSkill:
-			fmt.Printf("[%v] char #%v executing skill\n", s.Frame, active)
+			fmt.Printf("[%v] %v executing skill\n", s.Frame, current.Name)
 			cooldown = current.Skill(s)
 		default:
 			//do nothing

@@ -1,6 +1,8 @@
 package combat
 
-import "math/rand"
+import (
+	"math/rand"
+)
 
 //Unit keeps track of the status of one enemy Unit
 type Unit struct {
@@ -85,7 +87,20 @@ func (u *Unit) ApplyAura() {
 	//can trigger apply damage for superconduct, electrocharged, etc..
 }
 
-func (u *Unit) tick() {}
+func (u *Unit) tick() {
+	//check if any actions to apply
+	var keep []UnitAction
+	for i, a := range u.Actions {
+		if a.Delay == 0 {
+			//apply the action
+			a.Callback(u)
+		} else {
+			u.Actions[i].Delay--
+			keep = append(keep, u.Actions[i])
+		}
+	}
+	u.Actions = keep
+}
 
 //DamageProfile describe the stats necessary to calculate the damage
 type DamageProfile struct {

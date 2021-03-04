@@ -1,7 +1,7 @@
 package combat
 
 import (
-	"log"
+	"fmt"
 	"math/rand"
 	"time"
 )
@@ -69,19 +69,20 @@ type Character struct {
 
 	//ability functions to be defined by each character on how they will
 	//affect the unit
-	Attack       func(c *Character, f *Field, u *Unit) int
-	ChargeAttack func(c *Character, f *Field, u *Unit) int
-	Skill        func(c *Character, f *Field, u *Unit) int
-	Burst        func(c *Character, f *Field, u *Unit) int
+	Attack       func(s *Sim) int
+	ChargeAttack func(s *Sim) int
+	Skill        func(s *Sim) int
+	Burst        func(s *Sim) int
 
 	//somehow we have to deal with artifact effects too?
 	ArtifactSetBonus func(u *Unit)
 
 	//character specific information; need this for damage calc
 	Level         int64
-	BaseAtk       int64
-	WeaponAtk     int64
-	ArtifactStats map[string]float64
+	BaseAtk       float64
+	WeaponAtk     float64
+	BaseDef       float64
+	ArtifactStats map[StatType]float64
 	Talent        map[ActionType]int64 //talent levels
 }
 
@@ -105,15 +106,18 @@ type Sim struct {
 	Target *Unit
 	Actors []*Character
 	Field  *Field
+	Active int
+	Frame  int
 }
 
 //Run the sim; length in seconds
-func (s *Sim) Run(length int) {
+func (s *Sim) Run(length int, list []Action) {
 	var cooldown int
 	var active int //index of the currently active car
+	var i int
 	rand.Seed(time.Now().UnixNano())
 	//60fps, 60s/min, 2min
-	for f := 0; f < 60*length; f++ {
+	for s.Frame = 0; s.Frame < 60*length; s.Frame++ {
 		//tick target and each character
 		//target doesn't do anything, just takes punishment, so it won't affect cd
 		s.Target.tick()
@@ -132,36 +136,55 @@ func (s *Sim) Run(length int) {
 
 		//otherwise only either action or swaps can trigger cooldown
 		//we figure out what the next action is to be
-		next := s.next()
-		current := s.Actors[active]
+		next := list[i]
 
-		//we trigger the next action; action currently is either a character abil
-		//or a swap
-		//this corresponds to a manual action in game by the player i.e.
-		//left click, right click, q, or e press
-		switch next {
-		case ActionTypeSwap:
-			active = 0     //swap active to whoever
-			cooldown = 100 //trigger cooldown
+		//check if actor is active
+		if next.TargetCharIndex != active {
+			fmt.Printf("[%v] swapping to char #%v (current = %v)\n", s.Frame, next.TargetCharIndex, active)
+			//trigger a swap
+			cooldown = 150
+			active = next.TargetCharIndex
+			continue
+
+		}
+
+		//if active see what ability we want to use
+		current := s.Actors[active]
+		switch next.Type {
 		case ActionTypeDash:
-			//simply puts us in cooldown
+			fmt.Printf("[%v] dashing\n", s.Frame)
 			cooldown = 100
 		case ActionTypeJump:
-			//simply puts us in cooldown
+			fmt.Printf("[%v] jumping\n", s.Frame)
 			cooldown = 100
 		case ActionTypeAttack:
-			log.Println("not implemented")
+			fmt.Printf("[%v] char #%v executing attack\n", s.Frame, active)
+			cooldown = current.Attack(s)
 		case ActionTypeChargedAttack:
-			current.ChargeAttack(current, s.Field, s.Target)
+			fmt.Printf("[%v] char #%v executing charged attack\n", s.Frame, active)
+			cooldown = current.ChargeAttack(s)
 		case ActionTypeBurst:
-			log.Println("not implemented")
+			fmt.Printf("[%v] char #%v executing burst\n", s.Frame, active)
+			cooldown = current.Burst(s)
 		case ActionTypeSkill:
-			log.Println("not implemented")
+			fmt.Printf("[%v] char #%v executing skill\n", s.Frame, active)
+			cooldown = current.Skill(s)
+		default:
+			//do nothing
+			fmt.Printf("[%v] no action specified: %v. Doing nothing\n", s.Frame, next.Type)
 		}
+		//move on to next action on list
+		i++
 	}
 }
 
 func (s *Sim) next() ActionType {
 	//determine the next action somehow
 	return "swap"
+}
+
+//Action describe one action to execute
+type Action struct {
+	TargetCharIndex int
+	Type            ActionType
 }

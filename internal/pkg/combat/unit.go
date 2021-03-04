@@ -35,7 +35,7 @@ type UnitAction struct {
 }
 
 //ApplyDamage applies ability damage to an Unit
-func (u *Unit) ApplyDamage(d DamageProfile) {
+func (u *Unit) ApplyDamage(d DamageProfile) float64 {
 	//calculate attack or def
 	var a float64
 	if d.UseDef {
@@ -76,6 +76,8 @@ func (u *Unit) ApplyDamage(d DamageProfile) {
 	}
 
 	u.Damage += damage
+
+	return damage
 }
 
 //ApplyAura applies an aura to the Unit

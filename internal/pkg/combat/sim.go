@@ -11,104 +11,67 @@ type Aura struct{}
 
 func (a *Aura) tick() {}
 
-//ElementType is a string representing an element i.e. HYDRO/PYRO/etc...
-type ElementType string
-
-//ElementType should be pryo, hydro, cryo, electro, geo, anemo and maybe dendro
-const (
-	ElementTypePyro    ElementType = "pyro"
-	ElementTypeHydro   ElementType = "hydro"
-	ElementTypeCryo    ElementType = "cryo"
-	ElementTypeElectro ElementType = "electro"
-	ElementTypeGeo     ElementType = "geo"
-	ElementTypeAnemo   ElementType = "anemo"
-)
-
-//ActionType can be swap, dash, jump, attack, skill, burst
-type ActionType string
-
-//ActionType constants
-const (
-	ActionTypeSwap          ActionType = "swap"
-	ActionTypeDash          ActionType = "dash"
-	ActionTypeJump          ActionType = "jump"
-	ActionTypeAttack        ActionType = "attack"
-	ActionTypeChargedAttack ActionType = "charge"
-	ActionTypeSkill         ActionType = "skill"
-	ActionTypeBurst         ActionType = "burst"
-)
-
-//Character contains all the information required to calculate
-type Character struct {
-	//track cd of the abilities
-	Cooldown map[string]int
-	Energy   float64 //how much energy the character currently have
-
-	//info specific to normal attacks; SHOULD be identical for all char
-	//hope mihoyo doesnt come out with some weird ass char that changes this
-	AttackCounter    int //which attack in the chain are we in; starts at 0 (= 1)
-	AttackResetTimer int //number of frames before attack counter resets back to 0
-
-	//we need some sort of key/val Store to Store information
-	//specific to each character. not sure what this could be yet
-	Store map[string]interface{}
-
-	//OnField uptime tracker for any skill that stays on field independent
-	//of user action
-	OnField map[ActionType]int
-
-	//ICD tracker for actions
-	ICD map[ActionType]int
-
-	//TickHooks are functions to be called on each tick
-	//this is useful for on field effect such as gouba/oz/pyronado
-	//we can use store to keep track of the uptime on gouba/oz/pyronado/taunt etc..
-	//for something like baron bunny, if uptime = xx, then trigger damage
-	TickHooks map[string]HookFunc
-	//what about something like bennett ult or ganyu ult that affects char in the field?? this hook can only affect current actor?
-
-	//ability functions to be defined by each character on how they will
-	//affect the unit
-	Attack       func(s *Sim) int
-	ChargeAttack func(s *Sim) int
-	Skill        func(s *Sim) int
-	Burst        func(s *Sim) int
-
-	//somehow we have to deal with artifact effects too?
-	ArtifactSetBonus func(u *Unit)
-
-	//character specific information; need this for damage calc
-	Name          string
-	Level         int64
-	BaseAtk       float64
-	WeaponAtk     float64
-	BaseDef       float64
-	ArtifactStats map[StatType]float64
-	Talent        map[ActionType]int64 //talent levels
-}
-
-//HookFunc describes a function to be called on a tick
-type HookFunc func(u *Unit)
-
-func (c *Character) tick(u *Unit) {
-	//this function gets called for every character every tick
-}
-
-func (c *Character) orb(e ElementType, isActive bool) {
-	//called when elemental orgs are received by the character
-}
-
 //Field describes field effects (mainly the buffs)
 type Field struct {
 }
 
+//HookFunc describes a function to be called on a tick; if return true then
+//main loop can delete this hook
+type HookFunc func(s *Sim) bool
+
+type effectFunc func(s *Sim) bool
+
+type effectType string
+
+const (
+	preDamageHook   effectType = "PRE_DAMAGE"
+	postDamageHook  effectType = "POST_DAMAGE"
+	preAuraAppHook  effectType = "PRE_AURA_APP"
+	postAuraAppHook effectType = "POST_AURA_APP"
+	preActionHook   effectType = "PRE_ACTION"
+	actionHook      effectType = "ACTION"
+	postActionHook  effectType = "POST_ACTION"
+	fieldEffectHook effectType = "FIELD_EFFECt"
+)
+
 //Sim keeps track of one simulation
 type Sim struct {
-	Target *Unit
-	Actors []*Character
-	Field  *Field
-	Active int
-	Frame  int
+	targets    []*Unit
+	characters []*character
+	active     int
+	frame      int
+
+	//per tick hooks
+	actions map[string]HookFunc
+	//effects
+	effects map[effectType]map[string]effectFunc
+}
+
+//NewSim creates a new sim unit
+func NewSim(n int) *Sim {
+	var s Sim
+	//setup unit
+	var units []*Unit
+	for i := 0; i < n; i++ {
+		u := &Unit{}
+		u.Auras = make(map[ElementType]Aura)
+		u.Buffs = make(map[string]int)
+		u.Debuffs = make(map[string]int)
+		units = append(units, u)
+	}
+	s.actions = make(map[string]HookFunc)
+	s.effects = make(map[effectType]map[string]effectFunc)
+
+	s.targets = units
+
+	return &s
+}
+
+func (s *Sim) useEffect(f effectFunc, key string, hook effectType) {
+	if _, ok := s.effects[hook]; !ok {
+		s.effects[hook] = make(map[string]effectFunc)
+	}
+	s.effects[hook][key] = f
 }
 
 //Run the sim; length in seconds
@@ -118,16 +81,18 @@ func (s *Sim) Run(length int, list []Action) {
 	var i int
 	rand.Seed(time.Now().UnixNano())
 	//60fps, 60s/min, 2min
-	for s.Frame = 0; s.Frame < 60*length; s.Frame++ {
+	for s.frame = 0; s.frame < 60*length; s.frame++ {
 		//tick target and each character
 		//target doesn't do anything, just takes punishment, so it won't affect cd
-		s.Target.tick()
-		for _, c := range s.Actors {
-			//character may affect cooldown by i.e. adding to it
-			//character also need to know if we're currently on cooldown
-			//so they don't do anything other than tick down
-			c.tick(s.Target)
+		for _, t := range s.targets {
+			t.tick(s)
 		}
+		for _, c := range s.characters {
+			//character may affect cooldown by i.e. adding to it
+			c.tick(s)
+		}
+
+		s.handleTick()
 
 		//if in cooldown, do nothing
 		if cooldown > 0 {
@@ -136,56 +101,130 @@ func (s *Sim) Run(length int, list []Action) {
 		}
 
 		if i >= len(list) {
-			continue
+			//start over
+			i = 0
 		}
-
 		//otherwise only either action or swaps can trigger cooldown
 		//we figure out what the next action is to be
 		next := list[i]
 
 		//check if actor is active
 		if next.TargetCharIndex != active {
-			fmt.Printf("[%v] swapping to char #%v (current = %v)\n", s.Frame, next.TargetCharIndex, active)
+			fmt.Printf("[%v] swapping to char #%v (current = %v)\n", s.frame, next.TargetCharIndex, active)
 			//trigger a swap
 			cooldown = 150
 			active = next.TargetCharIndex
 			continue
 
 		}
-
-		//if active see what ability we want to use
-		current := s.Actors[active]
-		switch next.Type {
-		case ActionTypeDash:
-			fmt.Printf("[%v] dashing\n", s.Frame)
-			cooldown = 100
-		case ActionTypeJump:
-			fmt.Printf("[%v] jumping\n", s.Frame)
-			cooldown = 100
-		case ActionTypeAttack:
-			fmt.Printf("[%v] %v executing attack\n", s.Frame, current.Name)
-			cooldown = current.Attack(s)
-		case ActionTypeChargedAttack:
-			fmt.Printf("[%v] %v executing charged attack\n", s.Frame, current.Name)
-			cooldown = current.ChargeAttack(s)
-		case ActionTypeBurst:
-			fmt.Printf("[%v] %v executing burst\n", s.Frame, current.Name)
-			cooldown = current.Burst(s)
-		case ActionTypeSkill:
-			fmt.Printf("[%v] %v executing skill\n", s.Frame, current.Name)
-			cooldown = current.Skill(s)
-		default:
-			//do nothing
-			fmt.Printf("[%v] no action specified: %v. Doing nothing\n", s.Frame, next.Type)
-		}
 		//move on to next action on list
 		i++
+
+		cooldown = s.handleAction(active, next)
+
 	}
 }
 
-func (s *Sim) next() ActionType {
-	//determine the next action somehow
-	return "swap"
+//handleTick
+func (s *Sim) handleTick() {
+	//apply pre action
+	for k, f := range s.effects[preActionHook] {
+		if f(s) {
+			fmt.Printf("preAction %v expired\n", k)
+			delete(s.effects[preActionHook], k)
+		}
+	}
+	//apply actions
+	for k, f := range s.effects[actionHook] {
+		if f(s) {
+			fmt.Printf("action %v expired\n", k)
+			delete(s.effects[actionHook], k)
+		}
+	}
+}
+
+//handleAction executes the next action, returns the cooldown
+func (s *Sim) handleAction(active int, a Action) int {
+	//if active see what ability we want to use
+	current := s.characters[active]
+
+	switch a.Type {
+	case ActionTypeDash:
+		print(s.frame, "dashing")
+		return 100
+	case ActionTypeJump:
+		print(s.frame, "dashing")
+		fmt.Printf("[%v] jumping\n", s.frame)
+		return 100
+	case ActionTypeAttack:
+		print(s.frame, "%v executing attack", current.Name)
+		return current.attack(s)
+	case ActionTypeChargedAttack:
+		print(s.frame, "%v executing charged attack", current.Name)
+		return current.chargeAttack(s)
+	case ActionTypeBurst:
+		print(s.frame, "%v executing burst", current.Name)
+		return current.burst(s)
+	case ActionTypeSkill:
+		print(s.frame, "%v executing skill", current.Name)
+		return current.skill(s)
+	default:
+		//do nothing
+		print(s.frame, "no action specified: %v. Doing nothing", a.Type)
+	}
+
+	return 0
+}
+
+func (s *Sim) handleDamage(d DamageProfile) float64 {
+
+	//calculate attack or def
+	var a float64
+	if d.UseDef {
+		a = d.BaseDef*(1+d.Stats[DEFP]) + d.Stats[DEF]
+	} else {
+		a = d.BaseAtk*(1+d.Stats[ATKP]) + d.Stats[ATK]
+	}
+	base := d.Multiplier*a + d.FlatDmg
+
+	damage := base * (1 + d.DmgBonus)
+
+	//check if crit
+	if rand.Float64() <= d.Stats[CR] {
+		damage = damage * (1 + d.Stats[CD])
+	}
+
+	//we'll pretend there's only one unit for now...
+	for _, u := range s.targets {
+
+		defmod := float64(d.CharacterLevel+100) / (float64(d.CharacterLevel+100) + float64(u.Level+100)*(1-d.DefMod))
+		//apply def mod
+		damage = damage * defmod
+		//apply resist mod
+		res := u.Resist + d.ResistMod
+		resmod := 1 - res/2
+		if res >= 0 && res < 0.75 {
+			resmod = 1 - res
+		} else if res > 0.75 {
+			resmod = 1 / (4*res + 1)
+		}
+		damage = damage * resmod
+
+		//apply amp mod - TODO
+		if d.ApplyAura {
+
+		}
+
+		//apply other multiplier bonus
+		if d.OtherMult > 0 {
+			damage = damage * d.OtherMult
+		}
+
+		u.Damage += damage
+
+		return damage
+	}
+	return 0
 }
 
 //Action describe one action to execute

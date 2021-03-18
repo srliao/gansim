@@ -6,76 +6,76 @@ import (
 	"go.uber.org/zap"
 )
 
-func (s *Sim) applyDamage(ds snapshot) float64 {
+func (s *Sim) ApplyDamage(ds snapshot) float64 {
 
-	ds.targetLvl = s.target.Level
-	ds.targetRes = s.target.Resist
+	ds.TargetLvl = s.Target.Level
+	ds.TargetRes = s.Target.Resist
 
 	for k, f := range s.effects[preDamageHook] {
 		if f(&ds) {
-			print(s.frame, true, "effect (pre damage) %v expired", k)
+			print(s.Frame, true, "effect (pre damage) %v expired", k)
 			delete(s.effects[preDamageHook], k)
 		}
 	}
 
-	print(s.frame, true, "%v - %v triggered dmg", ds.char, ds.abil)
+	print(s.Frame, true, "%v - %v triggered dmg", ds.CharName, ds.Abil)
 
 	damage := calcDmg(ds)
 
 	for k, f := range s.effects[postDamageHook] {
 		if f(&ds) {
-			print(s.frame, true, "effect (post damage) %v expired", k)
+			print(s.Frame, true, "effect (post damage) %v expired", k)
 			delete(s.effects[postDamageHook], k)
 		}
 	}
 
-	s.target.damage += damage
+	s.Target.damage += damage
 
 	//apply aura
-	if ds.applyAura {
-		s.target.applyAura(ds)
+	if ds.ApplyAura {
+		s.Target.applyAura(ds)
 	}
 
 	return damage
 }
 
 type snapshot struct {
-	char     string     //name of the character triggering the damage
-	abil     string     //name of ability triggering the damage
-	abilType ActionType //type of ability triggering the damage
+	CharName string     //name of the character triggering the damage
+	Abil     string     //name of ability triggering the damage
+	AbilType ActionType //type of ability triggering the damage
 
-	hitWeakPoint bool
+	HitWeakPoint bool
 
-	targetLvl int64
-	targetRes float64
+	TargetLvl int64
+	TargetRes float64
 
-	mult         float64 //ability multiplier. could set to 0 from initial Mona dmg
-	element      eleType //element of ability
-	auraGauge    float64 //1 2 or 4
-	auraUnit     string  //A, B, or C
-	auraDuration int     //duration of the aura in units
-	applyAura    bool    //if aura should be applied; false if under ICD
-	useDef       bool    //default false
-	flatDmg      float64 //flat dmg; so far only zhongli
-	otherMult    float64 //so far just for xingqiu C4
+	Mult         float64 //ability multiplier. could set to 0 from initial Mona dmg
+	Element      eleType //element of ability
+	AuraGauge    float64 //1 2 or 4
+	AuraUnit     string  //A, B, or C
+	AuraDuration int     //duration of the aura in units
+	ApplyAura    bool    //if aura should be applied; false if under ICD
+	UseDef       bool    //default false
+	FlatDmg      float64 //flat dmg; so far only zhongli
+	OtherMult    float64 //so far just for xingqiu C4
 
-	stats      map[StatType]float64 //total character stats including from artifact, bonuses, etc...
-	baseAtk    float64              //base attack used in calc
-	baseDef    float64              //base def used in calc
-	dmgBonus   float64              //total damage bonus, including appropriate ele%, etc..
-	charLvl    int64
-	defMod     float64
-	resMod     float64
-	reactBonus float64 //reaction bonus %+ such as witch
+	Stats      map[StatType]float64 //total character stats including from artifact, bonuses, etc...
+	BaseAtk    float64              //base attack used in calc
+	BaseDef    float64              //base def used in calc
+	DmgBonus   float64              //total damage bonus, including appropriate ele%, etc..
+	CharLvl    int64
+	DefMod     float64
+	ResMod     float64
+	ReactBonus float64 //reaction bonus %+ such as witch
 }
 
 func calcDmg(d snapshot) float64 {
 
 	var st StatType
-	switch d.element {
+	switch d.Element {
 	case anemo:
 		st = AnemoP
-	case cryo:
+	case Cryo:
 		st = CryoP
 	case electro:
 		st = ElectroP
@@ -88,43 +88,43 @@ func calcDmg(d snapshot) float64 {
 	case physical:
 		st = PhyP
 	}
-	d.dmgBonus += d.stats[st]
+	d.DmgBonus += d.Stats[st]
 
-	zap.S().Debugw("calc", "base atk", d.baseAtk, "flat +", d.stats[ATK], "% +", d.stats[ATKP], "bonus dmg", d.dmgBonus, "mul", d.mult)
+	zap.S().Debugw("calc", "base atk", d.BaseAtk, "flat +", d.Stats[ATK], "% +", d.Stats[ATKP], "bonus dmg", d.DmgBonus, "mul", d.Mult)
 	//calculate attack or def
 	var a float64
-	if d.useDef {
-		a = d.baseDef*(1+d.stats[DEFP]) + d.stats[DEF]
+	if d.UseDef {
+		a = d.BaseDef*(1+d.Stats[DEFP]) + d.Stats[DEF]
 	} else {
-		a = d.baseAtk*(1+d.stats[ATKP]) + d.stats[ATK]
+		a = d.BaseAtk*(1+d.Stats[ATKP]) + d.Stats[ATK]
 	}
 
-	base := d.mult*a + d.flatDmg
-	damage := base * (1 + d.dmgBonus)
+	base := d.Mult*a + d.FlatDmg
+	damage := base * (1 + d.DmgBonus)
 
 	zap.S().Debugw("calc", "total atk", a, "base dmg", base, "dmg + bonus", damage)
 
 	//make sure 0 <= cr <= 1
-	if d.stats[CR] < 0 {
-		d.stats[CR] = 0
+	if d.Stats[CR] < 0 {
+		d.Stats[CR] = 0
 	}
-	if d.stats[CR] > 1 {
-		d.stats[CR] = 1
+	if d.Stats[CR] > 1 {
+		d.Stats[CR] = 1
 	}
 
 	//check if crit
-	if rand.Float64() <= d.stats[CR] || d.hitWeakPoint {
+	if rand.Float64() <= d.Stats[CR] || d.HitWeakPoint {
 		zap.S().Debugf("damage is crit!")
-		damage = damage * (1 + d.stats[CD])
+		damage = damage * (1 + d.Stats[CD])
 	}
 
-	zap.S().Debugw("calc", "cr", d.stats[CR], "cd", d.stats[CD], "def adj", d.defMod, "res adj", d.resMod, "char lvl", d.charLvl, "target lvl", d.targetLvl)
+	zap.S().Debugw("calc", "cr", d.Stats[CR], "cd", d.Stats[CD], "def adj", d.DefMod, "res adj", d.ResMod, "char lvl", d.CharLvl, "target lvl", d.TargetLvl)
 
-	defmod := float64(d.charLvl+100) / (float64(d.charLvl+100) + float64(d.targetLvl+100)*(1-d.defMod))
+	defmod := float64(d.CharLvl+100) / (float64(d.CharLvl+100) + float64(d.TargetLvl+100)*(1-d.DefMod))
 	//apply def mod
 	damage = damage * defmod
 	//apply resist mod
-	res := d.targetRes + d.resMod
+	res := d.TargetRes + d.ResMod
 	resmod := 1 - res/2
 	if res >= 0 && res < 0.75 {
 		resmod = 1 - res
@@ -135,8 +135,8 @@ func calcDmg(d snapshot) float64 {
 	zap.S().Debugw("calc", "def mod", defmod, "res mod", resmod)
 
 	//apply other multiplier bonus
-	if d.otherMult > 0 {
-		damage = damage * d.otherMult
+	if d.OtherMult > 0 {
+		damage = damage * d.OtherMult
 	}
 
 	return damage

@@ -9,7 +9,8 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type actionFunc func(s *Sim) bool
+type AbilFunc func(s *Sim) int
+type ActionFunc func(s *Sim) bool
 
 type effectType string
 
@@ -28,13 +29,13 @@ type effectFunc func(s *snapshot) bool
 
 //Sim keeps track of one simulation
 type Sim struct {
-	target     *unit
-	characters []*character
-	active     int
-	frame      int
+	Target     *unit
+	Characters []*Character
+	Active     int
+	Frame      int
 
 	//per tick hooks
-	actions map[string]actionFunc
+	actions map[string]ActionFunc
 	//effects
 	effects map[effectType]map[string]effectFunc
 }
@@ -50,63 +51,10 @@ func New(p Profile) (*Sim, error) {
 	u.Level = p.Enemy.Level
 	u.Resist = p.Enemy.Resist
 
-	s.target = u
+	s.Target = u
 
-	s.actions = make(map[string]actionFunc)
+	s.actions = make(map[string]ActionFunc)
 	s.effects = make(map[effectType]map[string]effectFunc)
-	var chars []*character
-	//create the characters
-	for _, v := range p.Characters {
-		c := &character{}
-		//initialize artifact sets
-		//initialize other variables/stats
-		c.stats = make(map[StatType]float64)
-		c.cooldown = make(map[string]int)
-		c.store = make(map[string]interface{})
-		c.statMods = make(map[string]map[StatType]float64)
-		c.profile = v
-
-		switch v.Name {
-		case "Ganyu":
-			newGanyu(c)
-		default:
-			return nil, fmt.Errorf("invalid character: %v", v.Name)
-		}
-		//initialize weapon
-		switch v.WeaponName {
-		case "Prototype Crescent":
-			weaponPrototypeCrescent(c, s, v.WeaponRefinement)
-		default:
-			return nil, fmt.Errorf("invalid weapon: %v", v.WeaponName)
-		}
-		c.WeaponAtk = v.WeaponBaseAtk
-		//check set bonus
-		sb := make(map[string]int)
-		for _, a := range v.Artifacts {
-			c.stats[a.MainStat.Type] += a.MainStat.Value
-			for _, sub := range a.Substat {
-				c.stats[sub.Type] += sub.Value
-			}
-			sb[a.Set]++
-		}
-		//add ascension bonus
-		for k, v := range v.AscensionBonus {
-			c.stats[k] += v
-		}
-		//add weapon sub stat
-		for k, v := range v.WeaponSecondaryStat {
-			c.stats[k] += v
-		}
-		//add set bonus
-		for key, count := range sb {
-			if f, ok := setBonus[key]; ok {
-				f(c, s, count)
-			}
-		}
-
-		chars = append(chars, c)
-	}
-	s.characters = chars
 
 	config := zap.NewDevelopmentConfig()
 	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
@@ -128,6 +76,60 @@ func New(p Profile) (*Sim, error) {
 	}
 	zap.ReplaceGlobals(logger)
 
+	var chars []*Character
+	//create the characters
+	for _, v := range p.Characters {
+		//initialize artifact sets
+
+		f, ok := charMap[v.Name]
+		if !ok {
+			return nil, fmt.Errorf("invalid character: %v", v.Name)
+		}
+
+		c := f(s, logger.Sugar())
+		//initialize other variables/stats
+		c.Stats = make(map[StatType]float64)
+		c.Cooldown = make(map[string]int)
+		c.Store = make(map[string]interface{})
+		c.Mods = make(map[string]map[StatType]float64)
+		c.Profile = v
+
+		//initialize weapon
+		switch v.WeaponName {
+		case "Prototype Crescent":
+			weaponPrototypeCrescent(c, s, v.WeaponRefinement)
+		default:
+			return nil, fmt.Errorf("invalid weapon: %v", v.WeaponName)
+		}
+		c.WeaponAtk = v.WeaponBaseAtk
+		//check set bonus
+		sb := make(map[string]int)
+		for _, a := range v.Artifacts {
+			c.Stats[a.MainStat.Type] += a.MainStat.Value
+			for _, sub := range a.Substat {
+				c.Stats[sub.Type] += sub.Value
+			}
+			sb[a.Set]++
+		}
+		//add ascension bonus
+		for k, v := range v.AscensionBonus {
+			c.Stats[k] += v
+		}
+		//add weapon sub stat
+		for k, v := range v.WeaponSecondaryStat {
+			c.Stats[k] += v
+		}
+		//add set bonus
+		for key, count := range sb {
+			if f, ok := setBonus[key]; ok {
+				f(c, s, count)
+			}
+		}
+
+		chars = append(chars, c)
+	}
+	s.Characters = chars
+
 	return s, nil
 }
 
@@ -138,11 +140,11 @@ func (s *Sim) Run(length int, list []Action) float64 {
 	var i int
 	rand.Seed(time.Now().UnixNano())
 	//60fps, 60s/min, 2min
-	for s.frame = 0; s.frame < 60*length; s.frame++ {
+	for s.Frame = 0; s.Frame < 60*length; s.Frame++ {
 		//tick target and each character
 		//target doesn't do anything, just takes punishment, so it won't affect cd
-		s.target.tick(s)
-		for _, c := range s.characters {
+		s.Target.tick(s)
+		for _, c := range s.Characters {
 			//character may affect cooldown by i.e. adding to it
 			c.tick(s)
 		}
@@ -165,7 +167,7 @@ func (s *Sim) Run(length int, list []Action) float64 {
 
 		//check if actor is active
 		if next.TargetCharIndex != active {
-			fmt.Printf("[%v] swapping to char #%v (current = %v)\n", s.frame, next.TargetCharIndex, active)
+			fmt.Printf("[%v] swapping to char #%v (current = %v)\n", s.Frame, next.TargetCharIndex, active)
 			//trigger a swap
 			cooldown = 150
 			active = next.TargetCharIndex
@@ -179,7 +181,7 @@ func (s *Sim) Run(length int, list []Action) float64 {
 
 	}
 
-	return s.target.damage
+	return s.Target.damage
 }
 
 func (s *Sim) addEffect(f effectFunc, key string, hook effectType) {
@@ -189,7 +191,7 @@ func (s *Sim) addEffect(f effectFunc, key string, hook effectType) {
 	s.effects[hook][key] = f
 }
 
-func (s *Sim) addAction(f actionFunc, key string) {
+func (s *Sim) AddAction(f ActionFunc, key string) {
 	s.actions[key] = f
 }
 
@@ -197,7 +199,7 @@ func (s *Sim) addAction(f actionFunc, key string) {
 func (s *Sim) handleTick() {
 	for k, f := range s.actions {
 		if f(s) {
-			print(s.frame, true, "action %v expired", k)
+			print(s.Frame, true, "action %v expired", k)
 			delete(s.actions, k)
 		}
 	}
@@ -206,31 +208,31 @@ func (s *Sim) handleTick() {
 //handleAction executes the next action, returns the cooldown
 func (s *Sim) handleAction(active int, a Action) int {
 	//if active see what ability we want to use
-	c := s.characters[active]
+	c := s.Characters[active]
 
 	switch a.Type {
 	case ActionTypeDash:
-		print(s.frame, false, "dashing")
+		print(s.Frame, false, "dashing")
 		return 100
 	case ActionTypeJump:
-		print(s.frame, false, "dashing")
-		fmt.Printf("[%v] jumping\n", s.frame)
+		print(s.Frame, false, "dashing")
+		fmt.Printf("[%v] jumping\n", s.Frame)
 		return 100
 	case ActionTypeAttack:
-		print(s.frame, false, "%v executing attack", c.profile.Name)
-		return c.attack(s)
+		print(s.Frame, false, "%v executing attack", c.Profile.Name)
+		return c.Attack(s)
 	case ActionTypeChargedAttack:
-		print(s.frame, false, "%v executing charged attack", c.profile.Name)
-		return c.chargeAttack(s)
+		print(s.Frame, false, "%v executing charged attack", c.Profile.Name)
+		return c.ChargeAttack(s)
 	case ActionTypeBurst:
-		print(s.frame, false, "%v executing burst", c.profile.Name)
-		return c.burst(s)
+		print(s.Frame, false, "%v executing burst", c.Profile.Name)
+		return c.Burst(s)
 	case ActionTypeSkill:
-		print(s.frame, false, "%v executing skill", c.profile.Name)
-		return c.skill(s)
+		print(s.Frame, false, "%v executing skill", c.Profile.Name)
+		return c.Skill(s)
 	default:
 		//do nothing
-		print(s.frame, false, "no action specified: %v. Doing nothing", a.Type)
+		print(s.Frame, false, "no action specified: %v. Doing nothing", a.Type)
 	}
 
 	return 0

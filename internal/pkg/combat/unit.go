@@ -5,11 +5,11 @@ import "go.uber.org/zap"
 //eleType is a string representing an element i.e. HYDRO/PYRO/etc...
 type eleType string
 
-//ElementType should be pryo, hydro, cryo, electro, geo, anemo and maybe dendro
+//ElementType should be pryo, hydro, Cryo, electro, geo, anemo and maybe dendro
 const (
 	pyro     eleType = "pyro"
 	hydro    eleType = "hydro"
-	cryo     eleType = "cryo"
+	Cryo     eleType = "cryo"
 	electro  eleType = "electro"
 	geo      eleType = "geo"
 	anemo    eleType = "anemo"
@@ -55,22 +55,22 @@ func (u *unit) applyAura(ds snapshot) {
 	if len(u.auras) > 1 {
 		//this case should only happen with electro charge where there's 2 aura active at any one point in time
 		for e, a := range u.auras {
-			if e != ds.element {
-				zap.S().Debugw("apply aura", "aura", a, "existing ele", e, "next ele", ds.element)
+			if e != ds.Element {
+				zap.S().Debugw("apply aura", "aura", a, "existing ele", e, "next ele", ds.Element)
 			} else {
 				zap.S().Debugf("not implemented!!!")
 			}
 		}
 	} else if len(u.auras) == 1 {
-		if a, ok := u.auras[ds.element]; ok {
+		if a, ok := u.auras[ds.Element]; ok {
 			next := aura{
-				gauge:    ds.auraGauge,
+				gauge:    ds.AuraGauge,
 				unit:     a.unit,
-				duration: auraDur(a.unit, ds.auraGauge),
+				duration: auraDur(a.unit, ds.AuraGauge),
 			}
 			//refresh duration
-			zap.S().Debugf("%v refreshed. unit: %v. new duration: %v", ds.element, a.unit, next.duration)
-			u.auras[ds.element] = next
+			zap.S().Debugf("%v refreshed. unit: %v. new duration: %v", ds.Element, a.unit, next.duration)
+			u.auras[ds.Element] = next
 		} else {
 			//apply reaction
 			//The length of the freeze is based on the lowest remaining duration of the two elements applied.
@@ -78,12 +78,12 @@ func (u *unit) applyAura(ds snapshot) {
 		}
 	} else {
 		next := aura{
-			gauge:    ds.auraGauge,
-			unit:     ds.auraUnit,
-			duration: auraDur(ds.auraUnit, ds.auraGauge),
+			gauge:    ds.AuraGauge,
+			unit:     ds.AuraUnit,
+			duration: auraDur(ds.AuraUnit, ds.AuraGauge),
 		}
-		zap.S().Debugf("%v applied (new). unit: %v. duration: %v", ds.element, next.unit, next.duration)
-		u.auras[ds.element] = next
+		zap.S().Debugf("%v applied (new). unit: %v. duration: %v", ds.Element, next.unit, next.duration)
+		u.auras[ds.Element] = next
 	}
 }
 
@@ -99,7 +99,7 @@ func (u *unit) tick(s *Sim) {
 	//tick down aura
 	for k, v := range u.auras {
 		if v.duration == 0 {
-			print(s.frame, true, "aura %v expired", k)
+			print(s.Frame, true, "aura %v expired", k)
 			delete(u.auras, k)
 		} else {
 			a := u.auras[k]

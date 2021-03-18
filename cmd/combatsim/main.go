@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/srliao/gansim/internal/pkg/combat"
+	_ "github.com/srliao/gansim/internal/pkg/ganyu"
 	"gopkg.in/yaml.v2"
 )
 
@@ -39,7 +40,7 @@ func main() {
 		},
 	}
 	start := time.Now()
-	seconds := 6000
+	seconds := 600
 	dmg := s.Run(seconds, actions)
 	elapsed := time.Since(start)
 	log.Printf("Total damage dealt: %.2f over %v seconds. DPS = %.2f. Sim took %s\n", dmg, seconds, dmg/float64(seconds), elapsed)

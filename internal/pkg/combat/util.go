@@ -15,11 +15,7 @@ func print(f int, debug bool, msg string, data ...interface{}) {
 	zap.S().Infof("[%.2fs|%v]: %v", float64(f)/60, f, fmt.Sprintf(msg, data...))
 }
 
-func storekey(t, k string) string {
-	return fmt.Sprintf("%v-%v", t, k)
-}
-
-func fts(f int) string {
+func PrintFrames(f int) string {
 	return fmt.Sprintf("%.2fs|%v", float64(f)/60, f)
 }
 

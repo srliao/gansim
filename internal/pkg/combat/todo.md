@@ -1,14 +1,26 @@
 
+- break out each char to separate packages; import using init like sql
 - finish implementing ganyu (up to c6?)
     - talent levels
     - constellations
+
 - resonance
 - auras
+- add ningguang
+- priority based rotation
+- rotation conditions
 
 
 - field effects
 
-- talent levels
+
+
+
+
+
+
+
+
 
 
 

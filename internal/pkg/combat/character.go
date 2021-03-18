@@ -38,13 +38,7 @@ type character struct {
 	statMods map[string]map[StatType]float64 //special effect mods (character only)
 
 	//character specific information; need this for damage calc
-	Name      string
-	Level     int64
-	BaseAtk   float64
-	BaseDef   float64
-	BaseHP    float64
-	BaseCR    float64
-	BaseCD    float64
+	profile   CharacterProfile
 	WeaponAtk float64
 	Talent    map[ActionType]int64 //talent levels
 
@@ -66,10 +60,6 @@ func (c *character) tick(s *Sim) {
 	}
 }
 
-func (c *character) orb(e eleType, isActive bool) {
-	//called when elemental orgs are received by the character
-}
-
 func (c *character) snapshot(e eleType) snapshot {
 	var s snapshot
 	s.stats = make(map[StatType]float64)
@@ -86,14 +76,14 @@ func (c *character) snapshot(e eleType) snapshot {
 	//add field effects
 
 	//other stats
-	s.char = c.Name
-	s.baseAtk = c.BaseAtk + c.WeaponAtk
-	s.charLvl = c.Level
-	s.baseDef = c.BaseDef
+	s.char = c.profile.Name
+	s.baseAtk = c.profile.BaseAtk + c.WeaponAtk
+	s.charLvl = c.profile.Level
+	s.baseDef = c.profile.BaseDef
 	s.element = e
 
-	s.stats[CR] += c.BaseCR
-	s.stats[CD] += c.BaseCD
+	s.stats[CR] += c.profile.BaseCR
+	s.stats[CD] += c.profile.BaseCD
 
 	return s
 }

@@ -40,14 +40,14 @@ Characters:
           Type: "ATK"
           Value: 311
         Substat:
+          - Type: "CD"
+            Value: 0.062
           - Type: "EM"
-            Value: 42
-          - Type: "CR"
-            Value: 0.089
-          - Type: "DEF"
-            Value: 37
+            Value: 35
           - Type: "ATK%"
-            Value: 0.053
+            Value: 0.157
+          - Type: "CR"
+            Value: 0.07
       Sands:
         Level: 20
         Type: "Sands"
@@ -67,19 +67,19 @@ Characters:
       Goblet:
         Level: 20
         Type: "Goblet"
-        Set: "Blizzard Strayer"
+        Set: "Witch's Heart Flame"
         MainStat:
           Type: "Cryo%"
           Value: 0.466
         Substat:
-          - Type: "ATK%"
-            Value: 0.047
-          - Type: "DEF%"
-            Value: 0.109
-          - Type: "HP%"
-            Value: 0.105
+          - Type: "CD"
+            Value: 0.07
           - Type: "CR"
-            Value: 0.097
+            Value: 0.093
+          - Type: "HP"
+            Value: 717
+          - Type: "DEF"
+            Value: 16
       Circlet:
         Level: 20
         Type: "Circlet"
@@ -102,4 +102,4 @@ Enemy:
 Rotation:
   - CharacterName: "Ganyu"
     Action: "charge"
-LogLevel: "debug"
+LogLevel: "warn"

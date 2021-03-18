@@ -33,7 +33,7 @@ func (s *Sim) applyDamage(ds snapshot) float64 {
 
 	//apply aura
 	if ds.applyAura {
-		s.target.applyAura(ds.element, ds.auraDuration)
+		s.target.applyAura(ds)
 	}
 
 	return damage
@@ -51,6 +51,8 @@ type snapshot struct {
 
 	mult         float64 //ability multiplier. could set to 0 from initial Mona dmg
 	element      eleType //element of ability
+	auraGauge    float64 //1 2 or 4
+	auraUnit     string  //A, B, or C
 	auraDuration int     //duration of the aura in units
 	applyAura    bool    //if aura should be applied; false if under ICD
 	useDef       bool    //default false
@@ -71,24 +73,24 @@ func calcDmg(d snapshot) float64 {
 
 	var st StatType
 	switch d.element {
-	case eTypeAnemo:
+	case anemo:
 		st = AnemoP
-	case eTypeCryo:
+	case cryo:
 		st = CryoP
-	case eTypeElectro:
+	case electro:
 		st = ElectroP
-	case eTypeGeo:
+	case geo:
 		st = GeoP
-	case eTypeHydro:
+	case hydro:
 		st = HydroP
-	case eTypePyro:
+	case pyro:
 		st = PyroP
-	case eTypePhys:
+	case physical:
 		st = PhyP
 	}
-	d.dmgBonus += s.stats[st]
+	d.dmgBonus += d.stats[st]
 
-	zap.S().Debugw("calc", "base atk", d.baseAtk, "flat +", d.stats[ATK], "% +", d.stats[ATKP])
+	zap.S().Debugw("calc", "base atk", d.baseAtk, "flat +", d.stats[ATK], "% +", d.stats[ATKP], "bonus dmg", d.dmgBonus, "mul", d.mult)
 	//calculate attack or def
 	var a float64
 	if d.useDef {
@@ -102,11 +104,21 @@ func calcDmg(d snapshot) float64 {
 
 	zap.S().Debugw("calc", "total atk", a, "base dmg", base, "dmg + bonus", damage)
 
+	//make sure 0 <= cr <= 1
+	if d.stats[CR] < 0 {
+		d.stats[CR] = 0
+	}
+	if d.stats[CR] > 1 {
+		d.stats[CR] = 1
+	}
+
 	//check if crit
-	if rand.Float64() <= d.stats[CR] {
+	if rand.Float64() <= d.stats[CR] || d.hitWeakPoint {
 		zap.S().Debugf("damage is crit!")
 		damage = damage * (1 + d.stats[CD])
 	}
+
+	zap.S().Debugw("calc", "cr", d.stats[CR], "cd", d.stats[CD], "def adj", d.defMod, "res adj", d.resMod, "char lvl", d.charLvl, "target lvl", d.targetLvl)
 
 	defmod := float64(d.charLvl+100) / (float64(d.charLvl+100) + float64(d.targetLvl+100)*(1-d.defMod))
 	//apply def mod
@@ -120,7 +132,7 @@ func calcDmg(d snapshot) float64 {
 		resmod = 1 / (4*res + 1)
 	}
 	damage = damage * resmod
-	zap.S().Debugw("calc", "cr", d.stats[CR], "cd", d.stats[CD], "def mod", defmod, "res mod", resmod)
+	zap.S().Debugw("calc", "def mod", defmod, "res mod", resmod)
 
 	//apply other multiplier bonus
 	if d.otherMult > 0 {

@@ -102,4 +102,4 @@ Enemy:
 Rotation:
   - CharacterName: "Ganyu"
     Action: "charge"
-LogLevel: "debug"
+LogLevel: "warn"

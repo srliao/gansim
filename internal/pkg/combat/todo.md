@@ -1,8 +1,13 @@
 
-- character dmg profile
-- weapon stats
-- field effects
+- finish implementing ganyu (up to c6?)
+    - talent levels
+    - constellations
+- resonance
 - auras
+
+
+- field effects
+
 - talent levels
 
 

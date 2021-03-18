@@ -10,7 +10,7 @@ func weaponPrototypeCrescent(c *character, s *Sim, r int) {
 	//add on hit effect to sim?
 	s.addEffect(func(snap *snapshot) bool {
 		//check if char is correct?
-		if snap.char != c.Name {
+		if snap.char != c.profile.Name {
 			return false
 		}
 		//check if weakpoint triggered
@@ -44,7 +44,7 @@ func weaponPrototypeCrescent(c *character, s *Sim, r int) {
 				c.statMods["Prototype-Crescent-Proc"][ATKP] = atkmod
 			}
 			return false
-		}, fmt.Sprintf("%v-Prototype-Crescent-Proc-%v", s.frame, c.Name))
+		}, fmt.Sprintf("%v-Prototype-Crescent-Proc-%v", s.frame, c.profile.Name))
 		return false
 	}, "prototype-crescent-proc", postDamageHook)
 }

@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func TestGenerator(t *testing.T) {
+func testGenerator(t *testing.T) {
 
 	ms, err := loadMainStat("./test/mainstat.csv")
 	if err != nil {

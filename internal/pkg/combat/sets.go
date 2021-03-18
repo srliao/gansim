@@ -9,16 +9,17 @@ func setBlizzardStrayer(c *character, s *Sim, count int) {
 	}
 	if count >= 4 {
 		s.addEffect(func(snap *snapshot) bool {
-			if snap.char != c.Name {
+			if snap.char != c.profile.Name {
 				return false
 			}
-			zap.S().Debugf("applying blizzard strayer 4pc buff")
-			//check aura, if cryo crit + 20%
-			if _, ok := s.target.auras[eTypeCryo]; ok {
+
+			if _, ok := s.target.auras[frozen]; ok {
+				zap.S().Debugf("applying blizzard strayer 4pc buff on frozen target")
+				snap.stats[CR] += .4
+			} else if _, ok := s.target.auras[cryo]; ok {
+				zap.S().Debugf("applying blizzard strayer 4pc buff on cryo target")
 				snap.stats[CR] += .2
 			}
-			//if frozen crit + 20%
-			//TODO HOW TO CHECK IF FROZEN
 
 			return false
 		}, "blizzard strayer 4pc", preDamageHook)

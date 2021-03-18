@@ -40,14 +40,14 @@ Characters:
           Type: "ATK"
           Value: 311
         Substat:
+          - Type: "CD"
+            Value: 0.062
           - Type: "EM"
-            Value: 42
-          - Type: "CR"
-            Value: 0.089
-          - Type: "DEF"
-            Value: 37
+            Value: 35
           - Type: "ATK%"
-            Value: 0.053
+            Value: 0.157
+          - Type: "CR"
+            Value: 0.07
       Sands:
         Level: 20
         Type: "Sands"
@@ -102,4 +102,4 @@ Enemy:
 Rotation:
   - CharacterName: "Ganyu"
     Action: "charge"
-LogLevel: "debug"
+LogLevel: "warn"

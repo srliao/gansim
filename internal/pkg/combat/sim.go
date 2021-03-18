@@ -9,40 +9,6 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type Profile struct {
-	Label string `yaml:"Label"`
-	Enemy struct {
-		Level int64 `yaml:"Level"`
-		// Number     int64   `yaml:"Number"`
-		Resist float64 `yaml:"Resist"`
-	} `yaml:"Enemy"`
-	Characters []struct {
-		Name                string               `yaml:"Name"`
-		Level               int                  `yaml:"Level"`
-		BaseHP              float64              `yaml:"BaseHP"`
-		BaseAtk             float64              `yaml:"BaseAtk"`
-		BaseDef             float64              `yaml:"BaseDef"`
-		BaseCR              float64              `yaml:"BaseCR"`
-		BaseCD              float64              `yaml:"BaseCD"`
-		Constellation       int                  `yaml:"Constellation"`
-		AscensionBonus      map[StatType]float64 `yaml:"AscensionBonus"`
-		WeaponName          string               `yaml:"WeaponName"`
-		WeaponRefinement    int                  `yaml:"WeaponRefinement"`
-		WeaponBaseAtk       float64              `yaml:"WeaponBaseAtk"`
-		WeaponSecondaryStat map[StatType]float64 `yaml:"WeaponSecondaryStat"`
-		Artifacts           map[Slot]Artifact    `yaml:"Artifacts"`
-	} `yaml:"Characters"`
-	Rotation  []RotationItem `yaml:"Rotation"`
-	ShowDebug bool           `yaml:"ShowDebug"`
-}
-
-//RotationItem ...
-type RotationItem struct {
-	CharacterName string     `yaml:"CharacterName"`
-	Action        ActionType `yaml:"Action"`
-	Condition     string     //to be implemented
-}
-
 type actionFunc func(s *Sim) bool
 
 type effectType string
@@ -79,7 +45,7 @@ func New(p Profile) (*Sim, error) {
 
 	u := &unit{}
 
-	u.auras = make(map[eleType]int)
+	u.auras = make(map[eleType]aura)
 	u.status = make(map[string]int)
 	u.Level = p.Enemy.Level
 	u.Resist = p.Enemy.Resist
@@ -98,11 +64,7 @@ func New(p Profile) (*Sim, error) {
 		c.cooldown = make(map[string]int)
 		c.store = make(map[string]interface{})
 		c.statMods = make(map[string]map[StatType]float64)
-		c.BaseAtk = v.BaseAtk
-		c.BaseDef = v.BaseDef
-		c.BaseHP = v.BaseHP
-		c.BaseCD = v.BaseCD
-		c.BaseCR = v.BaseCR
+		c.profile = v
 
 		switch v.Name {
 		case "Ganyu":
@@ -148,8 +110,15 @@ func New(p Profile) (*Sim, error) {
 
 	config := zap.NewDevelopmentConfig()
 	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	if !p.ShowDebug {
+	switch p.LogLevel {
+	case "debug":
+		config.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
+	case "info":
 		config.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
+	case "warn":
+		config.Level = zap.NewAtomicLevelAt(zapcore.WarnLevel)
+	case "error":
+		config.Level = zap.NewAtomicLevelAt(zapcore.ErrorLevel)
 	}
 	config.EncoderConfig.TimeKey = ""
 
@@ -163,7 +132,7 @@ func New(p Profile) (*Sim, error) {
 }
 
 //Run the sim; length in seconds
-func (s *Sim) Run(length int, list []Action) {
+func (s *Sim) Run(length int, list []Action) float64 {
 	var cooldown int
 	var active int //index of the currently active car
 	var i int
@@ -209,6 +178,8 @@ func (s *Sim) Run(length int, list []Action) {
 		cooldown = s.handleAction(active, next)
 
 	}
+
+	return s.target.damage
 }
 
 func (s *Sim) addEffect(f effectFunc, key string, hook effectType) {
@@ -235,7 +206,7 @@ func (s *Sim) handleTick() {
 //handleAction executes the next action, returns the cooldown
 func (s *Sim) handleAction(active int, a Action) int {
 	//if active see what ability we want to use
-	current := s.characters[active]
+	c := s.characters[active]
 
 	switch a.Type {
 	case ActionTypeDash:
@@ -246,17 +217,17 @@ func (s *Sim) handleAction(active int, a Action) int {
 		fmt.Printf("[%v] jumping\n", s.frame)
 		return 100
 	case ActionTypeAttack:
-		print(s.frame, false, "%v executing attack", current.Name)
-		return current.attack(s)
+		print(s.frame, false, "%v executing attack", c.profile.Name)
+		return c.attack(s)
 	case ActionTypeChargedAttack:
-		print(s.frame, false, "%v executing charged attack", current.Name)
-		return current.chargeAttack(s)
+		print(s.frame, false, "%v executing charged attack", c.profile.Name)
+		return c.chargeAttack(s)
 	case ActionTypeBurst:
-		print(s.frame, false, "%v executing burst", current.Name)
-		return current.burst(s)
+		print(s.frame, false, "%v executing burst", c.profile.Name)
+		return c.burst(s)
 	case ActionTypeSkill:
-		print(s.frame, false, "%v executing skill", current.Name)
-		return current.skill(s)
+		print(s.frame, false, "%v executing skill", c.profile.Name)
+		return c.skill(s)
 	default:
 		//do nothing
 		print(s.frame, false, "no action specified: %v. Doing nothing", a.Type)
@@ -269,4 +240,56 @@ func (s *Sim) handleAction(active int, a Action) int {
 type Action struct {
 	TargetCharIndex int
 	Type            ActionType
+}
+
+type ActionType string
+
+//ActionType constants
+const (
+	ActionTypeSwap          ActionType = "swap"
+	ActionTypeDash          ActionType = "dash"
+	ActionTypeJump          ActionType = "jump"
+	ActionTypeAttack        ActionType = "attack"
+	ActionTypeChargedAttack ActionType = "charge"
+	ActionTypeSkill         ActionType = "skill"
+	ActionTypeBurst         ActionType = "burst"
+)
+
+type Profile struct {
+	Label      string             `yaml:"Label"`
+	Enemy      EnemyProfile       `yaml:"Enemy"`
+	Characters []CharacterProfile `yaml:"Characters"`
+	Rotation   []RotationItem     `yaml:"Rotation"`
+	LogLevel   string             `yaml:"LogLevel"`
+}
+
+//CharacterProfile ...
+type CharacterProfile struct {
+	Name                string               `yaml:"Name"`
+	Level               int64                `yaml:"Level"`
+	BaseHP              float64              `yaml:"BaseHP"`
+	BaseAtk             float64              `yaml:"BaseAtk"`
+	BaseDef             float64              `yaml:"BaseDef"`
+	BaseCR              float64              `yaml:"BaseCR"`
+	BaseCD              float64              `yaml:"BaseCD"`
+	Constellation       int                  `yaml:"Constellation"`
+	AscensionBonus      map[StatType]float64 `yaml:"AscensionBonus"`
+	WeaponName          string               `yaml:"WeaponName"`
+	WeaponRefinement    int                  `yaml:"WeaponRefinement"`
+	WeaponBaseAtk       float64              `yaml:"WeaponBaseAtk"`
+	WeaponSecondaryStat map[StatType]float64 `yaml:"WeaponSecondaryStat"`
+	Artifacts           map[Slot]Artifact    `yaml:"Artifacts"`
+}
+
+//EnemyProfile ...
+type EnemyProfile struct {
+	Level  int64   `yaml:"Level"`
+	Resist float64 `yaml:"Resistance"` //this needs to be a map later on
+}
+
+//RotationItem ...
+type RotationItem struct {
+	CharacterName string     `yaml:"CharacterName"`
+	Action        ActionType `yaml:"Action"`
+	Condition     string     //to be implemented
 }

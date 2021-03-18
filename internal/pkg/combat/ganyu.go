@@ -8,7 +8,6 @@ import (
 )
 
 func newGanyu(c *character) {
-	c.Name = "Ganyu"
 	c.chargeAttack = ganyuCAFunc
 	c.burst = ganyuBurstFunc
 	c.skill = ganyuSkillFunc
@@ -22,9 +21,9 @@ func newGanyu(c *character) {
 }
 
 func ganyuCAFunc(s *Sim) int {
-	current := s.characters[s.active]
+	c := s.characters[s.active]
 	//if it's the wrong char somehow (shouldn't be), exit
-	if current.Name != "Ganyu" {
+	if c.profile.Name != "Ganyu" {
 		log.Panic("wrong character executing ability")
 	}
 
@@ -35,17 +34,23 @@ func ganyuCAFunc(s *Sim) int {
 			return false
 		}
 		//abil
-		d := current.snapshot(eTypeCryo)
+		d := c.snapshot(cryo)
 		d.abil = "Frost Flake Arrow"
 		d.abilType = ActionTypeChargedAttack
 		d.hitWeakPoint = true
 		d.mult = 2.304
+		d.auraGauge = 1
+		d.auraUnit = "A"
 		d.applyAura = true
-		d.auraDuration = 10
 		//if not ICD, apply aura
-		if _, ok := current.cooldown[storekey("ICD", "charge")]; !ok {
+		if _, ok := c.cooldown[storekey("ICD", "charge")]; !ok {
 			d.applyAura = true
 		}
+		//check if A4 talent is
+		if _, ok := c.cooldown["A2"]; ok {
+			d.stats[CR] += 0.2
+		}
+		c.cooldown["A2"] = 5 * 60
 		//apply damage
 		damage := s.applyDamage(d)
 		zap.S().Infof("[%v]: Ganyu frost arrow dealt %.0f damage", fts(s.frame), damage)
@@ -60,15 +65,19 @@ func ganyuCAFunc(s *Sim) int {
 			return false
 		}
 		//abil
-		d := current.snapshot(eTypeCryo)
+		d := c.snapshot(cryo)
 		d.abil = "Frost Flake Bloom"
 		d.abilType = ActionTypeChargedAttack
 		d.mult = 3.9168
 		d.applyAura = true
-		d.auraDuration = 10
+		d.auraGauge = 1
+		d.auraUnit = "A"
 		//if not ICD, apply aura
-		if _, ok := current.cooldown[storekey("ICD", "charge")]; !ok {
+		if _, ok := c.cooldown[storekey("ICD", "charge")]; !ok {
 			d.applyAura = true
+		}
+		if _, ok := c.cooldown["A2"]; ok {
+			d.stats[CR] += 0.2
 		}
 		//apply damage
 		damage := s.applyDamage(d)
@@ -83,7 +92,6 @@ func ganyuCAFunc(s *Sim) int {
 }
 
 func ganyuAttackFunc(s *Sim) int {
-
 	return 0
 }
 
@@ -94,17 +102,19 @@ func ganyuPlungeFunc(s *Sim) int {
 func ganyuBurstFunc(s *Sim) int {
 	current := s.characters[s.active]
 	//if it's the wrong char somehow (shouldn't be), exit
-	if current.Name != "Ganyu" {
+	if current.profile.Name != "Ganyu" {
 		log.Panic("wrong character executing ability")
 	}
 
 	//snap shot stats at cast time here
-	d := current.snapshot(eTypeCryo)
+	d := current.snapshot(cryo)
 	d.abil = "Celestial Shower"
 	d.abilType = ActionTypeBurst
 	d.mult = 0.938
 	d.applyAura = true
-	d.auraDuration = 10
+	d.auraGauge = 1
+	d.auraUnit = "A"
+	d.auraDuration = 570 //9.5s * 60 frames
 
 	//apply weapon stats here
 	//burst should be instant
@@ -136,18 +146,19 @@ func ganyuBurstFunc(s *Sim) int {
 func ganyuSkillFunc(s *Sim) int {
 	current := s.characters[s.active]
 	//if it's the wrong char somehow (shouldn't be), exit
-	if current.Name != "Ganyu" {
+	if current.profile.Name != "Ganyu" {
 		log.Panic("wrong character executing ability")
 	}
 	//snap shot stats at cast time here
-	d := current.snapshot(eTypeCryo)
+	d := current.snapshot(cryo)
 	d.mult = 1.848
 	d.applyAura = true
-	d.auraDuration = 10
+	d.auraGauge = 1
+	d.auraUnit = "A"
+	d.auraDuration = 570 //9.5s * 60 frames
 
 	tick := 0
 	flower := func(s *Sim) bool {
-
 		if tick < 6*60 {
 			return false
 		}

@@ -1,11 +1,11 @@
 package combat
 
+import "go.uber.org/zap"
+
 //character contains all the information required to calculate
 type character struct {
 	//track cooldowns in general; can be skill on field, ICD, etc...
 	cooldown map[string]int
-	energy   float64 //how much energy the character currently have
-	stamina  float64 //how much stam the character currently have
 
 	//we need some sort of key/val store to store information
 	//specific to each character.
@@ -13,13 +13,13 @@ type character struct {
 	store map[string]interface{}
 
 	//Init is used to add in any initial hooks to the sim
-	init func(s *Sim)
+	// init func(s *Sim)
 
 	//tickHooks are functions to be called on each tick
 	//this is useful for on field effect such as gouba/oz/pyronado
 	//we can use store to keep track of the uptime on gouba/oz/pyronado/taunt etc..
 	//for something like baron bunny, if uptime = xx, then trigger damage
-	tickHooks map[string]HookFunc
+	// tickHooks map[string]func(s *Sim) bool
 	//what about something like bennett ult or ganyu ult that affects char in the field?? this hook can only affect current actor?
 
 	//ability functions to be defined by each character on how they will
@@ -31,7 +31,7 @@ type character struct {
 	burst        func(s *Sim) int
 
 	//somehow we have to deal with artifact effects too?
-	ArtifactSetBonus func(u *Unit)
+	ArtifactSetBonus func(u *unit)
 
 	//key stats
 	stats    map[StatType]float64
@@ -41,9 +41,18 @@ type character struct {
 	Name      string
 	Level     int64
 	BaseAtk   float64
-	WeaponAtk float64
 	BaseDef   float64
+	BaseHP    float64
+	BaseCR    float64
+	BaseCD    float64
+	WeaponAtk float64
 	Talent    map[ActionType]int64 //talent levels
+
+	//other stats
+	maxEnergy  float64
+	maxStamina float64
+	energy     float64 //how much energy the character currently have
+	stamina    float64 //how much stam the character currently have
 }
 
 func (c *character) tick(s *Sim) {
@@ -57,6 +66,51 @@ func (c *character) tick(s *Sim) {
 	}
 }
 
-func (c *character) orb(e ElementType, isActive bool) {
+func (c *character) orb(e eleType, isActive bool) {
 	//called when elemental orgs are received by the character
+}
+
+func (c *character) snapshot(e eleType) snapshot {
+	var s snapshot
+	s.stats = make(map[StatType]float64)
+	for k, v := range c.stats {
+		s.stats[k] = v
+	}
+	//add char specific stat effect
+	for x, m := range c.statMods {
+		zap.S().Debugw("adding special char stat mod to snapshot", "key", x, "mods", m)
+		for k, v := range m {
+			s.stats[k] += v
+		}
+	}
+	//add field effects
+
+	//other stats
+	s.char = c.Name
+	s.baseAtk = c.BaseAtk + c.WeaponAtk
+	s.charLvl = c.Level
+	s.baseDef = c.BaseDef
+	s.element = e
+	var a StatType
+	switch e {
+	case eTypeAnemo:
+		a = AnemoP
+	case eTypeCryo:
+		a = CryoP
+	case eTypeElectro:
+		a = ElectroP
+	case eTypeGeo:
+		a = GeoP
+	case eTypeHydro:
+		a = HydroP
+	case eTypePyro:
+		a = PyroP
+	case eTypePhys:
+		a = PhyP
+	}
+	s.dmgBonus = s.stats[a]
+	s.stats[CR] += c.BaseCR
+	s.stats[CD] += c.BaseCD
+
+	return s
 }

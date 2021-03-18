@@ -4,22 +4,46 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
-//Aura keeps track of the status of each aura
-type Aura struct{}
-
-func (a *Aura) tick() {}
-
-//Field describes field effects (mainly the buffs)
-type Field struct {
+type Profile struct {
+	Label string `yaml:"Label"`
+	Enemy struct {
+		Level int64 `yaml:"Level"`
+		// Number     int64   `yaml:"Number"`
+		Resist float64 `yaml:"Resist"`
+	} `yaml:"Enemy"`
+	Characters []struct {
+		Name                string               `yaml:"Name"`
+		Level               int                  `yaml:"Level"`
+		BaseHP              float64              `yaml:"BaseHP"`
+		BaseAtk             float64              `yaml:"BaseAtk"`
+		BaseDef             float64              `yaml:"BaseDef"`
+		BaseCR              float64              `yaml:"BaseCR"`
+		BaseCD              float64              `yaml:"BaseCD"`
+		Constellation       int                  `yaml:"Constellation"`
+		AscensionBonus      map[StatType]float64 `yaml:"AscensionBonus"`
+		WeaponName          string               `yaml:"WeaponName"`
+		WeaponRefinement    int                  `yaml:"WeaponRefinement"`
+		WeaponBaseAtk       float64              `yaml:"WeaponBaseAtk"`
+		WeaponSecondaryStat map[StatType]float64 `yaml:"WeaponSecondaryStat"`
+		Artifacts           map[Slot]Artifact    `yaml:"Artifacts"`
+	} `yaml:"Characters"`
+	Rotation  []RotationItem `yaml:"Rotation"`
+	ShowDebug bool           `yaml:"ShowDebug"`
 }
 
-//HookFunc describes a function to be called on a tick; if return true then
-//main loop can delete this hook
-type HookFunc func(s *Sim) bool
+//RotationItem ...
+type RotationItem struct {
+	CharacterName string     `yaml:"CharacterName"`
+	Action        ActionType `yaml:"Action"`
+	Condition     string     //to be implemented
+}
 
-type effectFunc func(s *Sim) bool
+type actionFunc func(s *Sim) bool
 
 type effectType string
 
@@ -34,44 +58,108 @@ const (
 	fieldEffectHook effectType = "FIELD_EFFECt"
 )
 
+type effectFunc func(s *snapshot) bool
+
 //Sim keeps track of one simulation
 type Sim struct {
-	targets    []*Unit
+	target     *unit
 	characters []*character
 	active     int
 	frame      int
 
 	//per tick hooks
-	actions map[string]HookFunc
+	actions map[string]actionFunc
 	//effects
 	effects map[effectType]map[string]effectFunc
 }
 
-//NewSim creates a new sim unit
-func NewSim(n int) *Sim {
-	var s Sim
-	//setup unit
-	var units []*Unit
-	for i := 0; i < n; i++ {
-		u := &Unit{}
-		u.Auras = make(map[ElementType]Aura)
-		u.Buffs = make(map[string]int)
-		u.Debuffs = make(map[string]int)
-		units = append(units, u)
-	}
-	s.actions = make(map[string]HookFunc)
+//New creates new sim from given profile
+func New(p Profile) (*Sim, error) {
+	s := &Sim{}
+
+	u := &unit{}
+
+	u.auras = make(map[eleType]int)
+	u.status = make(map[string]int)
+	u.Level = p.Enemy.Level
+	u.Resist = p.Enemy.Resist
+
+	s.target = u
+
+	s.actions = make(map[string]actionFunc)
 	s.effects = make(map[effectType]map[string]effectFunc)
+	var chars []*character
+	//create the characters
+	for _, v := range p.Characters {
+		c := &character{}
+		//initialize artifact sets
+		//initialize other variables/stats
+		c.stats = make(map[StatType]float64)
+		c.cooldown = make(map[string]int)
+		c.store = make(map[string]interface{})
+		c.statMods = make(map[string]map[StatType]float64)
+		c.BaseAtk = v.BaseAtk
+		c.BaseDef = v.BaseDef
+		c.BaseHP = v.BaseHP
+		c.BaseCD = v.BaseCD
+		c.BaseCR = v.BaseCR
 
-	s.targets = units
+		switch v.Name {
+		case "Ganyu":
+			newGanyu(c)
+		default:
+			return nil, fmt.Errorf("invalid character: %v", v.Name)
+		}
+		//initialize weapon
+		switch v.WeaponName {
+		case "Prototype Crescent":
+			weaponPrototypeCrescent(c, s, v.WeaponRefinement)
+		default:
+			return nil, fmt.Errorf("invalid weapon: %v", v.WeaponName)
+		}
+		c.WeaponAtk = v.WeaponBaseAtk
+		//check set bonus
+		sb := make(map[string]int)
+		for _, a := range v.Artifacts {
+			c.stats[a.MainStat.Type] += a.MainStat.Value
+			for _, sub := range a.Substat {
+				c.stats[sub.Type] += sub.Value
+			}
+			sb[a.Set]++
+		}
+		//add ascension bonus
+		for k, v := range v.AscensionBonus {
+			c.stats[k] += v
+		}
+		//add weapon sub stat
+		for k, v := range v.WeaponSecondaryStat {
+			c.stats[k] += v
+		}
+		//add set bonus
+		for key, count := range sb {
+			if f, ok := setBonus[key]; ok {
+				f(c, s, count)
+			}
+		}
 
-	return &s
-}
-
-func (s *Sim) useEffect(f effectFunc, key string, hook effectType) {
-	if _, ok := s.effects[hook]; !ok {
-		s.effects[hook] = make(map[string]effectFunc)
+		chars = append(chars, c)
 	}
-	s.effects[hook][key] = f
+	s.characters = chars
+
+	config := zap.NewDevelopmentConfig()
+	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	if !p.ShowDebug {
+		config.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
+	}
+	config.EncoderConfig.TimeKey = ""
+
+	logger, err := config.Build()
+	if err != nil {
+		return nil, err
+	}
+	zap.ReplaceGlobals(logger)
+
+	return s, nil
 }
 
 //Run the sim; length in seconds
@@ -84,9 +172,7 @@ func (s *Sim) Run(length int, list []Action) {
 	for s.frame = 0; s.frame < 60*length; s.frame++ {
 		//tick target and each character
 		//target doesn't do anything, just takes punishment, so it won't affect cd
-		for _, t := range s.targets {
-			t.tick(s)
-		}
+		s.target.tick(s)
 		for _, c := range s.characters {
 			//character may affect cooldown by i.e. adding to it
 			c.tick(s)
@@ -125,20 +211,23 @@ func (s *Sim) Run(length int, list []Action) {
 	}
 }
 
+func (s *Sim) addEffect(f effectFunc, key string, hook effectType) {
+	if _, ok := s.effects[hook]; !ok {
+		s.effects[hook] = make(map[string]effectFunc)
+	}
+	s.effects[hook][key] = f
+}
+
+func (s *Sim) addAction(f actionFunc, key string) {
+	s.actions[key] = f
+}
+
 //handleTick
 func (s *Sim) handleTick() {
-	//apply pre action
-	for k, f := range s.effects[preActionHook] {
+	for k, f := range s.actions {
 		if f(s) {
-			fmt.Printf("preAction %v expired\n", k)
-			delete(s.effects[preActionHook], k)
-		}
-	}
-	//apply actions
-	for k, f := range s.effects[actionHook] {
-		if f(s) {
-			fmt.Printf("action %v expired\n", k)
-			delete(s.effects[actionHook], k)
+			print(s.frame, true, "action %v expired", k)
+			delete(s.actions, k)
 		}
 	}
 }
@@ -150,80 +239,29 @@ func (s *Sim) handleAction(active int, a Action) int {
 
 	switch a.Type {
 	case ActionTypeDash:
-		print(s.frame, "dashing")
+		print(s.frame, false, "dashing")
 		return 100
 	case ActionTypeJump:
-		print(s.frame, "dashing")
+		print(s.frame, false, "dashing")
 		fmt.Printf("[%v] jumping\n", s.frame)
 		return 100
 	case ActionTypeAttack:
-		print(s.frame, "%v executing attack", current.Name)
+		print(s.frame, false, "%v executing attack", current.Name)
 		return current.attack(s)
 	case ActionTypeChargedAttack:
-		print(s.frame, "%v executing charged attack", current.Name)
+		print(s.frame, false, "%v executing charged attack", current.Name)
 		return current.chargeAttack(s)
 	case ActionTypeBurst:
-		print(s.frame, "%v executing burst", current.Name)
+		print(s.frame, false, "%v executing burst", current.Name)
 		return current.burst(s)
 	case ActionTypeSkill:
-		print(s.frame, "%v executing skill", current.Name)
+		print(s.frame, false, "%v executing skill", current.Name)
 		return current.skill(s)
 	default:
 		//do nothing
-		print(s.frame, "no action specified: %v. Doing nothing", a.Type)
+		print(s.frame, false, "no action specified: %v. Doing nothing", a.Type)
 	}
 
-	return 0
-}
-
-func (s *Sim) handleDamage(d DamageProfile) float64 {
-
-	//calculate attack or def
-	var a float64
-	if d.UseDef {
-		a = d.BaseDef*(1+d.Stats[DEFP]) + d.Stats[DEF]
-	} else {
-		a = d.BaseAtk*(1+d.Stats[ATKP]) + d.Stats[ATK]
-	}
-	base := d.Multiplier*a + d.FlatDmg
-
-	damage := base * (1 + d.DmgBonus)
-
-	//check if crit
-	if rand.Float64() <= d.Stats[CR] {
-		damage = damage * (1 + d.Stats[CD])
-	}
-
-	//we'll pretend there's only one unit for now...
-	for _, u := range s.targets {
-
-		defmod := float64(d.CharacterLevel+100) / (float64(d.CharacterLevel+100) + float64(u.Level+100)*(1-d.DefMod))
-		//apply def mod
-		damage = damage * defmod
-		//apply resist mod
-		res := u.Resist + d.ResistMod
-		resmod := 1 - res/2
-		if res >= 0 && res < 0.75 {
-			resmod = 1 - res
-		} else if res > 0.75 {
-			resmod = 1 / (4*res + 1)
-		}
-		damage = damage * resmod
-
-		//apply amp mod - TODO
-		if d.ApplyAura {
-
-		}
-
-		//apply other multiplier bonus
-		if d.OtherMult > 0 {
-			damage = damage * d.OtherMult
-		}
-
-		u.Damage += damage
-
-		return damage
-	}
 	return 0
 }
 

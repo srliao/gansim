@@ -3,21 +3,22 @@ package combat
 import (
 	"fmt"
 	"log"
+
+	"go.uber.org/zap"
 )
 
-func newGanyu() *character {
-	var c character
+func newGanyu(c *character) {
 	c.Name = "Ganyu"
-	c.cooldown = make(map[string]int)
-	c.store = make(map[string]interface{})
-	c.tickHooks = make(map[string]HookFunc)
-	c.stats = make(map[StatType]float64)
 	c.chargeAttack = ganyuCAFunc
 	c.burst = ganyuBurstFunc
 	c.skill = ganyuSkillFunc
 	c.attack = ganyuAttackFunc
-
-	return &c
+	c.plungeAttack = ganyuPlungeFunc
+	//start with full energy
+	c.maxEnergy = 60
+	c.maxStamina = 240
+	c.energy = 60
+	c.stamina = 240
 }
 
 func ganyuCAFunc(s *Sim) int {
@@ -26,12 +27,6 @@ func ganyuCAFunc(s *Sim) int {
 	if current.Name != "Ganyu" {
 		log.Panic("wrong character executing ability")
 	}
-	//snap shot stats at cast time here
-	d := dProfileBuilder(current)
-	d.Element = ElementTypeCryo
-	d.DmgBonus = current.stats[CryoP]
-
-	//apply weapon stats here
 
 	i := 0
 	initial := func(s *Sim) bool {
@@ -40,14 +35,20 @@ func ganyuCAFunc(s *Sim) int {
 			return false
 		}
 		//abil
-		d.Multiplier = 2.304
+		d := current.snapshot(eTypeCryo)
+		d.abil = "Frost Flake Arrow"
+		d.abilType = ActionTypeChargedAttack
+		d.hitWeakPoint = true
+		d.mult = 2.304
+		d.applyAura = true
+		d.auraDuration = 10
 		//if not ICD, apply aura
 		if _, ok := current.cooldown[storekey("ICD", "charge")]; !ok {
-			d.ApplyAura = true
+			d.applyAura = true
 		}
 		//apply damage
-		damage := s.handleDamage(d)
-		print(s.frame, "Ganyu frost arrow dealt %.0f damage", damage)
+		damage := s.applyDamage(d)
+		zap.S().Infof("[%v]: Ganyu frost arrow dealt %.0f damage", fts(s.frame), damage)
 		return true
 	}
 
@@ -59,18 +60,23 @@ func ganyuCAFunc(s *Sim) int {
 			return false
 		}
 		//abil
-		d.Multiplier = 3.9168
+		d := current.snapshot(eTypeCryo)
+		d.abil = "Frost Flake Bloom"
+		d.abilType = ActionTypeChargedAttack
+		d.mult = 3.9168
+		d.applyAura = true
+		d.auraDuration = 10
 		//if not ICD, apply aura
 		if _, ok := current.cooldown[storekey("ICD", "charge")]; !ok {
-			d.ApplyAura = true
+			d.applyAura = true
 		}
 		//apply damage
-		damage := s.handleDamage(d)
-		print(s.frame, "Ganyu frost flake bloom dealt %.0f damage", damage)
+		damage := s.applyDamage(d)
+		zap.S().Infof("[%v]: Ganyu frost flake bloom dealt %.0f damage", fts(s.frame), damage)
 		return true
 	}
-	s.useEffect(initial, fmt.Sprintf("%v-Ganyu-CA-FFA", s.frame), actionHook)
-	s.useEffect(bloom, fmt.Sprintf("%v-Ganyu-CA-FFB", s.frame), actionHook)
+	s.addAction(initial, fmt.Sprintf("%v-Ganyu-CA-FFA", s.frame))
+	s.addAction(bloom, fmt.Sprintf("%v-Ganyu-CA-FFB", s.frame))
 
 	//return animation cd
 	return 137
@@ -81,24 +87,24 @@ func ganyuAttackFunc(s *Sim) int {
 	return 0
 }
 
+func ganyuPlungeFunc(s *Sim) int {
+	return 0
+}
+
 func ganyuBurstFunc(s *Sim) int {
 	current := s.characters[s.active]
 	//if it's the wrong char somehow (shouldn't be), exit
 	if current.Name != "Ganyu" {
 		log.Panic("wrong character executing ability")
 	}
+
 	//snap shot stats at cast time here
-	var d DamageProfile
-	d.Stats = make(map[StatType]float64)
-	for k, v := range current.stats {
-		d.Stats[k] = v
-	}
-	d.BaseAtk = current.BaseAtk + current.WeaponAtk
-	d.CharacterLevel = current.Level
-	d.BaseDef = current.BaseDef
-	d.UseDef = false
-	d.Element = ElementTypeHydro
-	d.DmgBonus = current.stats[CryoP]
+	d := current.snapshot(eTypeCryo)
+	d.abil = "Celestial Shower"
+	d.abilType = ActionTypeBurst
+	d.mult = 0.938
+	d.applyAura = true
+	d.auraDuration = 10
 
 	//apply weapon stats here
 	//burst should be instant
@@ -106,7 +112,6 @@ func ganyuBurstFunc(s *Sim) int {
 	//also add a field effect
 	tick := 0
 	storm := func(s *Sim) bool {
-		d.Multiplier = 0.938
 		if tick > 900 {
 			return true
 		}
@@ -116,12 +121,12 @@ func ganyuBurstFunc(s *Sim) int {
 			return false
 		}
 		//do damage
-		damage := s.handleDamage(d)
-		print(s.frame, "\t [tick] Ganyu burst dealt %.0f damage", damage)
+		damage := s.applyDamage(d)
+		zap.S().Infof("[%v]: Ganyu burst (tick) dealt %.0f damage", fts(s.frame), damage)
 		tick++
 		return false
 	}
-	s.useEffect(storm, fmt.Sprintf("%v-Ganyu-Burst", s.frame), actionHook)
+	s.addAction(storm, fmt.Sprintf("%v-Ganyu-Burst", s.frame))
 	//add cooldown to sim
 	current.cooldown[storekey("cd", "burst")] = 15 * 60
 
@@ -135,30 +140,24 @@ func ganyuSkillFunc(s *Sim) int {
 		log.Panic("wrong character executing ability")
 	}
 	//snap shot stats at cast time here
-	var d DamageProfile
-	d.Stats = make(map[StatType]float64)
-	for k, v := range current.stats {
-		d.Stats[k] = v
-	}
-	d.BaseAtk = current.BaseAtk + current.WeaponAtk
-	d.CharacterLevel = current.Level
-	d.BaseDef = current.BaseDef
-	d.UseDef = false
-	d.Element = ElementTypeHydro
-	d.DmgBonus = current.stats[CryoP]
+	d := current.snapshot(eTypeCryo)
+	d.mult = 1.848
+	d.applyAura = true
+	d.auraDuration = 10
+
 	tick := 0
 	flower := func(s *Sim) bool {
-		d.Multiplier = 1.848
+
 		if tick < 6*60 {
 			return false
 		}
 		//do damage
-		damage := s.handleDamage(d)
-		print(s.frame, "\t [tick] Ganyu ice lotus dealt %.0f damage", damage)
+		damage := s.applyDamage(d)
+		zap.S().Infof("[%v]: Ganyu ice lotus (tick) dealt %.0f damage", fts(s.frame), damage)
 		tick++
 		return false
 	}
-	s.useEffect(flower, fmt.Sprintf("%v-Ganyu-Skill", s.frame), actionHook)
+	s.addAction(flower, fmt.Sprintf("%v-Ganyu-Skill", s.frame))
 	//add cooldown to sim
 	current.cooldown[storekey("cd", "burst")] = 15 * 60
 

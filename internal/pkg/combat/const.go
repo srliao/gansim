@@ -1,16 +1,17 @@
 package combat
 
-//ElementType is a string representing an element i.e. HYDRO/PYRO/etc...
-type ElementType string
+//eleType is a string representing an element i.e. HYDRO/PYRO/etc...
+type eleType string
 
 //ElementType should be pryo, hydro, cryo, electro, geo, anemo and maybe dendro
 const (
-	ElementTypePyro    ElementType = "pyro"
-	ElementTypeHydro   ElementType = "hydro"
-	ElementTypeCryo    ElementType = "cryo"
-	ElementTypeElectro ElementType = "electro"
-	ElementTypeGeo     ElementType = "geo"
-	ElementTypeAnemo   ElementType = "anemo"
+	eTypePyro    eleType = "pyro"
+	eTypeHydro   eleType = "hydro"
+	eTypeCryo    eleType = "cryo"
+	eTypeElectro eleType = "electro"
+	eTypeGeo     eleType = "geo"
+	eTypeAnemo   eleType = "anemo"
+	eTypePhys    eleType = "physical"
 )
 
 //ActionType can be swap, dash, jump, attack, skill, burst
@@ -52,13 +53,6 @@ type EnemyConfig struct {
 	Level      int64   `yaml:"Level"`
 	Number     int64   `yaml:"Number"`
 	Resistance float64 `yaml:"Resistance"` //this needs to be a map later on
-}
-
-//RotationItem ...
-type RotationItem struct {
-	CharacterName string     `yaml:"CharacterName"`
-	Action        ActionType `yaml:"Action"`
-	Condition     string     //to be implemented
 }
 
 //Config ...

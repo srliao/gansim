@@ -3,6 +3,7 @@ package combat
 //Artifact represents one artfact
 type Artifact struct {
 	Level    int64  `yaml:"Level"`
+	Set      string `yaml:"Set"`
 	Type     Slot   `yaml:"Type"`
 	MainStat Stat   `yaml:"MainStat"`
 	Substat  []Stat `yaml:"Substat"`

@@ -2,6 +2,7 @@ package combat
 
 import (
 	"io/ioutil"
+	"log"
 	"testing"
 
 	"gopkg.in/yaml.v2"
@@ -10,10 +11,10 @@ import (
 func TestSim(t *testing.T) {
 
 	var source []byte
-	var cfg testCfg
+	var cfg Profile
 	var err error
 
-	source, err = ioutil.ReadFile("./test/testcfg.yaml")
+	source, err = ioutil.ReadFile("./test/cfg.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,30 +23,10 @@ func TestSim(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	s := NewSim(1)
-	s.targets[0].Level = cfg.Profile.EnemyLevel
-	s.targets[0].Resist = .1
-
-	g := newGanyu()
-	g.BaseAtk = cfg.Profile.CharBaseAtk
-	g.Level = cfg.Profile.CharLevel
-	g.WeaponAtk = cfg.Profile.WeaponBaseAtk
-
-	for _, a := range cfg.Artifacts {
-		g.stats[a.MainStat.Type] += a.MainStat.Value
-		for _, v := range a.Substat {
-			g.stats[v.Type] += v.Value
-		}
+	s, err := New(cfg)
+	if err != nil {
+		log.Fatal(err)
 	}
-	//manually add weapon mods etc..
-	g.stats[ATKP] += 0.413
-	g.stats[CryoP] += 0.15
-	g.stats[CR] += 0.25
-	g.stats[CD] += 0.884
-
-	s.characters = append(s.characters, g)
-
-	s.active = 0
 	var actions = []Action{
 		// {
 		// 	TargetCharIndex: 0,
@@ -58,9 +39,32 @@ func TestSim(t *testing.T) {
 	}
 	s.Run(6, actions)
 
+	// s := New()
+
+	// g := newGanyu()
+	// g.BaseAtk = cfg.Profile.CharBaseAtk
+	// g.Level = cfg.Profile.CharLevel
+	// g.WeaponAtk = cfg.Profile.WeaponBaseAtk
+
+	// for _, a := range cfg.Artifacts {
+	// 	g.stats[a.MainStat.Type] += a.MainStat.Value
+	// 	for _, v := range a.Substat {
+	// 		g.stats[v.Type] += v.Value
+	// 	}
+	// }
+	// //manually add weapon mods etc..
+	// g.stats[ATKP] += 0.413
+	// g.stats[CryoP] += 0.15
+	// g.stats[CR] += 0.25
+	// g.stats[CD] += 0.884
+
+	// s.characters = append(s.characters, g)
+
+	// s.active = 0
+
 }
 
-type Profile struct {
+type TestProfile struct {
 	Label         string  `yaml:"Label"`
 	CharLevel     int64   `yaml:"CharacterLevel"`
 	CharBaseAtk   float64 `yaml:"CharacterBaseAtk"`
@@ -102,6 +106,6 @@ type Profile struct {
 }
 
 type testCfg struct {
-	Profile   Profile           `yaml:"Profile"`
+	Profile   TestProfile       `yaml:"Profile"`
 	Artifacts map[Slot]Artifact `yaml:"Artifacts"`
 }

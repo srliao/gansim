@@ -1,27 +1,26 @@
 package combat
 
-import "fmt"
+import (
+	"fmt"
 
-func print(f int, msg string, data ...interface{}) {
-	fmt.Printf("[%.2fs|%v]: %v\n", float64(f)/60, f, fmt.Sprintf(msg, data...))
-}
+	"go.uber.org/zap"
+)
 
-func dProfileBuilder(c *character) DamageProfile {
-	var d DamageProfile
-	d.Stats = make(map[StatType]float64)
-	for k, v := range c.stats {
-		d.Stats[k] = v
+func print(f int, debug bool, msg string, data ...interface{}) {
+	// fmt.Printf("[%.2fs|%v]: %v\n", float64(f)/60, f, fmt.Sprintf(msg, data...))
+	if debug {
+		zap.S().Debugf("[%.2fs|%v]: %v", float64(f)/60, f, fmt.Sprintf(msg, data...))
+		return
 	}
-	//other stats
-	d.BaseAtk = c.BaseAtk + c.WeaponAtk
-	d.CharacterLevel = c.Level
-	d.BaseDef = c.BaseDef
-
-	return d
+	zap.S().Infof("[%.2fs|%v]: %v", float64(f)/60, f, fmt.Sprintf(msg, data...))
 }
 
 func storekey(t, k string) string {
 	return fmt.Sprintf("%v-%v", t, k)
+}
+
+func fts(f int) string {
+	return fmt.Sprintf("%.2fs|%v", float64(f)/60, f)
 }
 
 /**

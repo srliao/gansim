@@ -91,24 +91,7 @@ func (c *character) snapshot(e eleType) snapshot {
 	s.charLvl = c.Level
 	s.baseDef = c.BaseDef
 	s.element = e
-	var a StatType
-	switch e {
-	case eTypeAnemo:
-		a = AnemoP
-	case eTypeCryo:
-		a = CryoP
-	case eTypeElectro:
-		a = ElectroP
-	case eTypeGeo:
-		a = GeoP
-	case eTypeHydro:
-		a = HydroP
-	case eTypePyro:
-		a = PyroP
-	case eTypePhys:
-		a = PhyP
-	}
-	s.dmgBonus = s.stats[a]
+
 	s.stats[CR] += c.BaseCR
 	s.stats[CD] += c.BaseCD
 

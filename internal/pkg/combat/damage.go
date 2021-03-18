@@ -69,6 +69,25 @@ type snapshot struct {
 
 func calcDmg(d snapshot) float64 {
 
+	var st StatType
+	switch d.element {
+	case eTypeAnemo:
+		st = AnemoP
+	case eTypeCryo:
+		st = CryoP
+	case eTypeElectro:
+		st = ElectroP
+	case eTypeGeo:
+		st = GeoP
+	case eTypeHydro:
+		st = HydroP
+	case eTypePyro:
+		st = PyroP
+	case eTypePhys:
+		st = PhyP
+	}
+	d.dmgBonus += s.stats[st]
+
 	zap.S().Debugw("calc", "base atk", d.baseAtk, "flat +", d.stats[ATK], "% +", d.stats[ATKP])
 	//calculate attack or def
 	var a float64

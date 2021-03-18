@@ -73,19 +73,19 @@ func calcDmg(d snapshot) float64 {
 
 	var st StatType
 	switch d.Element {
-	case anemo:
+	case Anemo:
 		st = AnemoP
 	case Cryo:
 		st = CryoP
-	case electro:
+	case Electro:
 		st = ElectroP
-	case geo:
+	case Geo:
 		st = GeoP
-	case hydro:
+	case Hydro:
 		st = HydroP
-	case pyro:
+	case Pyro:
 		st = PyroP
-	case physical:
+	case Physical:
 		st = PhyP
 	}
 	d.DmgBonus += d.Stats[st]
@@ -112,12 +112,6 @@ func calcDmg(d snapshot) float64 {
 		d.Stats[CR] = 1
 	}
 
-	//check if crit
-	if rand.Float64() <= d.Stats[CR] || d.HitWeakPoint {
-		zap.S().Debugf("damage is crit!")
-		damage = damage * (1 + d.Stats[CD])
-	}
-
 	zap.S().Debugw("calc", "cr", d.Stats[CR], "cd", d.Stats[CD], "def adj", d.DefMod, "res adj", d.ResMod, "char lvl", d.CharLvl, "target lvl", d.TargetLvl)
 
 	defmod := float64(d.CharLvl+100) / (float64(d.CharLvl+100) + float64(d.TargetLvl+100)*(1-d.DefMod))
@@ -132,11 +126,17 @@ func calcDmg(d snapshot) float64 {
 		resmod = 1 / (4*res + 1)
 	}
 	damage = damage * resmod
-	zap.S().Debugw("calc", "def mod", defmod, "res mod", resmod)
 
 	//apply other multiplier bonus
 	if d.OtherMult > 0 {
 		damage = damage * d.OtherMult
+	}
+	zap.S().Debugw("calc", "def mod", defmod, "res mod", resmod, "pre crit damage", damage)
+
+	//check if crit
+	if rand.Float64() <= d.Stats[CR] || d.HitWeakPoint {
+		zap.S().Debugf("damage is crit!")
+		damage = damage * (1 + d.Stats[CD])
 	}
 
 	return damage

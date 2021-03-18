@@ -29,10 +29,12 @@ type effectFunc func(s *snapshot) bool
 
 //Sim keeps track of one simulation
 type Sim struct {
-	Target     *unit
+	Target     *Enemy
 	Characters []*Character
 	Active     int
 	Frame      int
+
+	log *zap.SugaredLogger
 
 	//per tick hooks
 	actions map[string]ActionFunc
@@ -44,7 +46,7 @@ type Sim struct {
 func New(p Profile) (*Sim, error) {
 	s := &Sim{}
 
-	u := &unit{}
+	u := &Enemy{}
 
 	u.auras = make(map[eleType]aura)
 	u.status = make(map[string]int)
@@ -74,6 +76,7 @@ func New(p Profile) (*Sim, error) {
 	if err != nil {
 		return nil, err
 	}
+	s.log = logger.Sugar()
 	zap.ReplaceGlobals(logger)
 
 	var chars []*Character
@@ -124,6 +127,25 @@ func New(p Profile) (*Sim, error) {
 			if f, ok := setBonus[key]; ok {
 				f(c, s, count)
 			}
+		}
+		//check talents are valid
+		for key, val := range v.TalentLevel {
+			if key != ActionTypeAttack && key != ActionTypeSkill && key != ActionTypeBurst {
+				return nil, fmt.Errorf("invalid talent type: %v - %v", v.Name, key)
+			}
+			if val < 1 || val > 15 {
+				return nil, fmt.Errorf("invalid talent level: %v - %v - %v", v.Name, key, val)
+			}
+		}
+		//check talents not missing
+		if _, ok := v.TalentLevel[ActionTypeAttack]; !ok {
+			return nil, fmt.Errorf("char %v missing talent level for %v", v.Name, ActionTypeAttack)
+		}
+		if _, ok := v.TalentLevel[ActionTypeSkill]; !ok {
+			return nil, fmt.Errorf("char %v missing talent level for %v", v.Name, ActionTypeSkill)
+		}
+		if _, ok := v.TalentLevel[ActionTypeBurst]; !ok {
+			return nil, fmt.Errorf("char %v missing talent level for %v", v.Name, ActionTypeBurst)
 		}
 
 		chars = append(chars, c)
@@ -244,19 +266,6 @@ type Action struct {
 	Type            ActionType
 }
 
-type ActionType string
-
-//ActionType constants
-const (
-	ActionTypeSwap          ActionType = "swap"
-	ActionTypeDash          ActionType = "dash"
-	ActionTypeJump          ActionType = "jump"
-	ActionTypeAttack        ActionType = "attack"
-	ActionTypeChargedAttack ActionType = "charge"
-	ActionTypeSkill         ActionType = "skill"
-	ActionTypeBurst         ActionType = "burst"
-)
-
 type Profile struct {
 	Label      string             `yaml:"Label"`
 	Enemy      EnemyProfile       `yaml:"Enemy"`
@@ -265,28 +274,10 @@ type Profile struct {
 	LogLevel   string             `yaml:"LogLevel"`
 }
 
-//CharacterProfile ...
-type CharacterProfile struct {
-	Name                string               `yaml:"Name"`
-	Level               int64                `yaml:"Level"`
-	BaseHP              float64              `yaml:"BaseHP"`
-	BaseAtk             float64              `yaml:"BaseAtk"`
-	BaseDef             float64              `yaml:"BaseDef"`
-	BaseCR              float64              `yaml:"BaseCR"`
-	BaseCD              float64              `yaml:"BaseCD"`
-	Constellation       int                  `yaml:"Constellation"`
-	AscensionBonus      map[StatType]float64 `yaml:"AscensionBonus"`
-	WeaponName          string               `yaml:"WeaponName"`
-	WeaponRefinement    int                  `yaml:"WeaponRefinement"`
-	WeaponBaseAtk       float64              `yaml:"WeaponBaseAtk"`
-	WeaponSecondaryStat map[StatType]float64 `yaml:"WeaponSecondaryStat"`
-	Artifacts           map[Slot]Artifact    `yaml:"Artifacts"`
-}
-
 //EnemyProfile ...
 type EnemyProfile struct {
 	Level  int64   `yaml:"Level"`
-	Resist float64 `yaml:"Resistance"` //this needs to be a map later on
+	Resist float64 `yaml:"Resist"` //this needs to be a map later on
 }
 
 //RotationItem ...

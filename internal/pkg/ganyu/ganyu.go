@@ -35,7 +35,7 @@ func charge(c *combat.Character, log *zap.SugaredLogger) combat.AbilFunc {
 			d.Abil = "Frost Flake Arrow"
 			d.AbilType = combat.ActionTypeChargedAttack
 			d.HitWeakPoint = true
-			d.Mult = 2.304
+			d.Mult = ffa[c.Profile.TalentLevel[combat.ActionTypeAttack]-1]
 			d.AuraGauge = 1
 			d.AuraUnit = "A"
 			d.ApplyAura = true
@@ -65,7 +65,7 @@ func charge(c *combat.Character, log *zap.SugaredLogger) combat.AbilFunc {
 			d := c.Snapshot(combat.Cryo)
 			d.Abil = "Frost Flake Bloom"
 			d.AbilType = combat.ActionTypeChargedAttack
-			d.Mult = 3.9168
+			d.Mult = ffb[c.Profile.TalentLevel[combat.ActionTypeAttack]-1]
 			d.ApplyAura = true
 			d.AuraGauge = 1
 			d.AuraUnit = "A"
@@ -95,11 +95,10 @@ func burst(c *combat.Character, log *zap.SugaredLogger) combat.AbilFunc {
 		d := c.Snapshot(combat.Cryo)
 		d.Abil = "Celestial Shower"
 		d.AbilType = combat.ActionTypeBurst
-		d.Mult = 0.938
+		d.Mult = shower[c.Profile.TalentLevel[combat.ActionTypeBurst]-1]
 		d.ApplyAura = true
 		d.AuraGauge = 1
 		d.AuraUnit = "A"
-		d.AuraDuration = 570 //9.5s * 60 frames
 
 		//apply weapon stats here
 		//burst should be instant
@@ -133,11 +132,12 @@ func skill(c *combat.Character, log *zap.SugaredLogger) combat.AbilFunc {
 	return func(s *combat.Sim) int {
 		//snap shot stats at cast time here
 		d := c.Snapshot(combat.Cryo)
-		d.Mult = 1.848
+		d.Abil = "Ice Lotus"
+		d.AbilType = combat.ActionTypeSkill
+		d.Mult = lotus[c.Profile.TalentLevel[combat.ActionTypeSkill]-1]
 		d.ApplyAura = true
 		d.AuraGauge = 1
 		d.AuraUnit = "A"
-		d.AuraDuration = 570 //9.5s * 60 frames
 
 		tick := 0
 		flower := func(s *combat.Sim) bool {

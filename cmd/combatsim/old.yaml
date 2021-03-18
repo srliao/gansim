@@ -10,6 +10,10 @@ Characters:
     Constellation: 1
     AscensionBonus:
       CD: 0.384
+    TalentLevel:
+      attack: 10
+      skill: 6
+      burst: 6    
     WeaponName: "Prototype Crescent"
     WeaponRefinement: 4
     WeaponBaseAtk: 510

@@ -13,7 +13,7 @@ func setBlizzardStrayer(c *Character, s *Sim, count int) {
 				return false
 			}
 
-			if _, ok := s.Target.auras[frozen]; ok {
+			if _, ok := s.Target.auras[Frozen]; ok {
 				zap.S().Debugf("applying blizzard strayer 4pc buff on frozen target")
 				snap.Stats[CR] += .4
 			} else if _, ok := s.Target.auras[Cryo]; ok {

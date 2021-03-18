@@ -15,7 +15,9 @@ func main() {
 	var cfg combat.Profile
 	var err error
 
-	source, err = ioutil.ReadFile("./test2.yaml")
+	p := "./current.yaml"
+
+	source, err = ioutil.ReadFile(p)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -40,8 +42,8 @@ func main() {
 		},
 	}
 	start := time.Now()
-	seconds := 600
+	seconds := 60000
 	dmg := s.Run(seconds, actions)
 	elapsed := time.Since(start)
-	log.Printf("Total damage dealt: %.2f over %v seconds. DPS = %.2f. Sim took %s\n", dmg, seconds, dmg/float64(seconds), elapsed)
+	log.Printf("Running profile %v, total damage dealt: %.2f over %v seconds. DPS = %.2f. Sim took %s\n", p, dmg, seconds, dmg/float64(seconds), elapsed)
 }

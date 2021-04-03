@@ -26,6 +26,6 @@ Profiles:
   # - "./profiles/xiao-c0-bc-0stack-cc.yaml"
   # - "./profiles/xiao-c0-skyward-1proc.yaml"
   # - "./profiles/bc-r1-3stack-t6.yaml"
-  # - "./profiles/proto-r1-t6-proc.yaml"
+  - "./profiles/proto-r1-t6-proc.yaml"
   # - "./profiles/proto-r5-t6-proc.yaml"
-  - "./profiles/amos-r1-t6.yaml"
+  # - "./profiles/amos-r1-t6.yaml"
